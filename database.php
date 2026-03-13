@@ -2,7 +2,8 @@
 /**
  * Cold Email AI Optimizer - Database Layer
  *
- * MySQL operations for storing iterations, emails, learnings, and weights.
+ * SQLite operations — zero config, runs anywhere PHP runs.
+ * Database file stored at data/optimizer.db
  */
 
 require_once __DIR__ . '/config.php';
@@ -10,12 +11,17 @@ require_once __DIR__ . '/config.php';
 function get_db(): PDO {
     static $pdo = null;
     if ($pdo === null) {
-        $dsn = sprintf('mysql:host=%s;dbname=%s;charset=utf8mb4', DB_HOST, DB_NAME);
-        $pdo = new PDO($dsn, DB_USER, DB_PASS, [
+        $db_path = DB_PATH;
+        $dir = dirname($db_path);
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+        $pdo = new PDO('sqlite:' . $db_path, null, null, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES => false,
         ]);
+        $pdo->exec('PRAGMA journal_mode=WAL');
+        $pdo->exec('PRAGMA foreign_keys=ON');
     }
     return $pdo;
 }
@@ -25,66 +31,63 @@ function create_tables(): void {
 
     $db->exec("
         CREATE TABLE IF NOT EXISTS iterations (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            iteration_num INT NOT NULL UNIQUE,
-            timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            industries JSON NOT NULL,
-            avg_score DECIMAL(6,2) DEFAULT 0,
-            best_score DECIMAL(6,2) DEFAULT 0,
-            insights JSON,
-            weight_snapshot JSON,
-            INDEX idx_iter_num (iteration_num)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            iteration_num INTEGER NOT NULL UNIQUE,
+            timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+            industries TEXT NOT NULL,
+            avg_score REAL DEFAULT 0,
+            best_score REAL DEFAULT 0,
+            insights TEXT,
+            weight_snapshot TEXT
+        )
     ");
 
     $db->exec("
         CREATE TABLE IF NOT EXISTS emails (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            iteration_id INT NOT NULL,
-            industry VARCHAR(50) NOT NULL,
-            subject_line VARCHAR(500),
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            iteration_id INTEGER NOT NULL REFERENCES iterations(id) ON DELETE CASCADE,
+            industry TEXT NOT NULL,
+            subject_line TEXT,
             body TEXT,
-            hook_type VARCHAR(20),
-            send_time VARCHAR(50),
-            total_score DECIMAL(6,2) DEFAULT 0,
-            subject_score DECIMAL(6,2) DEFAULT 0,
-            hook_score DECIMAL(6,2) DEFAULT 0,
-            personalization_score DECIMAL(6,2) DEFAULT 0,
-            cta_score DECIMAL(6,2) DEFAULT 0,
-            length_score DECIMAL(6,2) DEFAULT 0,
-            timing_score DECIMAL(6,2) DEFAULT 0,
-            spam_score DECIMAL(6,2) DEFAULT 0,
-            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (iteration_id) REFERENCES iterations(id) ON DELETE CASCADE,
-            INDEX idx_industry (industry),
-            INDEX idx_total_score (total_score DESC)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            hook_type TEXT,
+            send_time TEXT,
+            total_score REAL DEFAULT 0,
+            subject_score REAL DEFAULT 0,
+            hook_score REAL DEFAULT 0,
+            personalization_score REAL DEFAULT 0,
+            cta_score REAL DEFAULT 0,
+            length_score REAL DEFAULT 0,
+            timing_score REAL DEFAULT 0,
+            spam_score REAL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
     ");
+
+    $db->exec("CREATE INDEX IF NOT EXISTS idx_emails_industry ON emails(industry)");
+    $db->exec("CREATE INDEX IF NOT EXISTS idx_emails_score ON emails(total_score DESC)");
 
     $db->exec("
         CREATE TABLE IF NOT EXISTS learnings (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            iteration_id INT NOT NULL,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            iteration_id INTEGER NOT NULL REFERENCES iterations(id) ON DELETE CASCADE,
             insight TEXT NOT NULL,
-            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (iteration_id) REFERENCES iterations(id) ON DELETE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
     ");
 
     $db->exec("
         CREATE TABLE IF NOT EXISTS weights (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            iteration_id INT NOT NULL,
-            subject_line_quality DECIMAL(5,4) NOT NULL,
-            hook_type_score DECIMAL(5,4) NOT NULL,
-            personalization_depth DECIMAL(5,4) NOT NULL,
-            cta_clarity DECIMAL(5,4) NOT NULL,
-            email_length_score DECIMAL(5,4) NOT NULL,
-            timing_score DECIMAL(5,4) NOT NULL,
-            spam_avoidance DECIMAL(5,4) NOT NULL,
-            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (iteration_id) REFERENCES iterations(id) ON DELETE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            iteration_id INTEGER NOT NULL REFERENCES iterations(id) ON DELETE CASCADE,
+            subject_line_quality REAL NOT NULL,
+            hook_type_score REAL NOT NULL,
+            personalization_depth REAL NOT NULL,
+            cta_clarity REAL NOT NULL,
+            email_length_score REAL NOT NULL,
+            timing_score REAL NOT NULL,
+            spam_avoidance REAL NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
     ");
 }
 

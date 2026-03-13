@@ -2,6 +2,7 @@
 *.db
 *.sqlite
 *.log
+*.lock
 .DS_Store
 Thumbs.db
 /data/

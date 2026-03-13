@@ -30,13 +30,12 @@ define('ANTHROPIC_API_KEY', getenv('ANTHROPIC_API_KEY') ?: '');
 define('CLAUDE_MODEL', 'claude-sonnet-4-6');
 define('CLAUDE_MAX_TOKENS', 4096);
 
-define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
-define('DB_NAME', getenv('DB_NAME') ?: 'cold_email_optimizer');
-define('DB_USER', getenv('DB_USER') ?: 'root');
-define('DB_PASS', getenv('DB_PASS') ?: '');
+define('DB_PATH', getenv('DB_PATH') ?: __DIR__ . '/data/optimizer.db');
 
 define('CRON_SECRET', getenv('CRON_SECRET') ?: 'change-me');
 define('DEBUG', (bool)(getenv('DEBUG') ?: false));
+define('LOOP_INTERVAL', (int)(getenv('LOOP_INTERVAL') ?: 600)); // seconds between iterations
+define('DASHBOARD_PORT', (int)(getenv('DASHBOARD_PORT') ?: 8080));
 
 define('EMAILS_PER_INDUSTRY', 5);
 define('INDUSTRIES_PER_RUN', 3);
