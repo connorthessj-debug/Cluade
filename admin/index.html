@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Le Besian Balls — Admin Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+    <div class="admin-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <h2>LB Admin</h2>
+                <span class="badge">Dashboard</span>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-section="hero" onclick="showSection('hero')">
+                    <span class="nav-icon">🖼</span> Hero Section
+                </a>
+                <a href="#" class="nav-item" data-section="weekly" onclick="showSection('weekly')">
+                    <span class="nav-icon">📅</span> Weekly Flavors
+                </a>
+                <a href="#" class="nav-item" data-section="classics" onclick="showSection('classics')">
+                    <span class="nav-icon">⭐</span> Classic Menu
+                </a>
+                <a href="#" class="nav-item" data-section="packs" onclick="showSection('packs')">
+                    <span class="nav-icon">📦</span> Packs & Pricing
+                </a>
+                <a href="#" class="nav-item" data-section="about" onclick="showSection('about')">
+                    <span class="nav-icon">💜</span> Our Story
+                </a>
+                <a href="#" class="nav-item" data-section="site" onclick="showSection('site')">
+                    <span class="nav-icon">⚙</span> Site Settings
+                </a>
+                <a href="#" class="nav-item" data-section="fulfillment" onclick="showSection('fulfillment')">
+                    <span class="nav-icon">🚗</span> Fulfillment
+                </a>
+                <a href="#" class="nav-item" data-section="announcements" onclick="showSection('announcements')">
+                    <span class="nav-icon">📢</span> Announcements
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="../index.html" target="_blank">View Live Site →</a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="topbar">
+                <button class="mobile-sidebar-toggle" onclick="toggleSidebar()">☰</button>
+                <h1 id="page-title">Hero Section</h1>
+                <div class="topbar-actions">
+                    <span class="save-status" id="save-status"></span>
+                    <button class="btn btn-primary" onclick="saveAll()">Save All Changes</button>
+                </div>
+            </header>
+
+            <div class="content-area">
+
+                <!-- ===== HERO SECTION ===== -->
+                <section class="admin-section" id="section-hero">
+                    <div class="card">
+                        <h3>Hero Settings</h3>
+                        <div class="form-group">
+                            <label>Call-to-Action Text</label>
+                            <input type="text" id="hero-cta-text" onchange="markDirty()">
+                        </div>
+                        <div class="form-group">
+                            <label>CTA Link</label>
+                            <input type="text" id="hero-cta-link" onchange="markDirty()">
+                        </div>
+                        <div class="form-group">
+                            <label>Default Background Color</label>
+                            <input type="color" id="hero-bg-color" onchange="markDirty()">
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Hero Slides</h3>
+                            <button class="btn btn-sm" onclick="addHeroSlide()">+ Add Slide</button>
+                        </div>
+                        <div id="hero-slides-list"></div>
+                    </div>
+                </section>
+
+                <!-- ===== WEEKLY FLAVORS ===== -->
+                <section class="admin-section" id="section-weekly" style="display:none;">
+                    <div class="card">
+                        <h3>Weekly Settings</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Section Title</label>
+                                <input type="text" id="weekly-label" onchange="markDirty()">
+                            </div>
+                            <div class="form-group">
+                                <label>Date Range</label>
+                                <input type="text" id="weekly-dates" onchange="markDirty()">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Weekly Items</h3>
+                            <button class="btn btn-sm" onclick="addMenuItem('weekly')">+ Add Item</button>
+                        </div>
+                        <div id="weekly-items-list"></div>
+                    </div>
+                </section>
+
+                <!-- ===== CLASSICS ===== -->
+                <section class="admin-section" id="section-classics" style="display:none;">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Classic Menu Items</h3>
+                            <button class="btn btn-sm" onclick="addMenuItem('classics')">+ Add Item</button>
+                        </div>
+                        <div id="classics-items-list"></div>
+                    </div>
+                </section>
+
+                <!-- ===== PACKS ===== -->
+                <section class="admin-section" id="section-packs" style="display:none;">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Pack Options</h3>
+                            <button class="btn btn-sm" onclick="addPack()">+ Add Pack</button>
+                        </div>
+                        <div id="packs-list"></div>
+                    </div>
+                </section>
+
+                <!-- ===== ABOUT ===== -->
+                <section class="admin-section" id="section-about" style="display:none;">
+                    <div class="card">
+                        <h3>Our Story</h3>
+                        <div class="form-group">
+                            <label>Title</label>
+                            <input type="text" id="about-title" onchange="markDirty()">
+                        </div>
+                        <div class="form-group">
+                            <label>Story Text</label>
+                            <textarea id="about-text" rows="6" onchange="markDirty()"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Image Path</label>
+                            <input type="text" id="about-image" onchange="markDirty()">
+                            <small>Upload image to assets/images/ and enter the path here</small>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ===== SITE SETTINGS ===== -->
+                <section class="admin-section" id="section-site" style="display:none;">
+                    <div class="card">
+                        <h3>Site Information</h3>
+                        <div class="form-group">
+                            <label>Business Name</label>
+                            <input type="text" id="site-name" onchange="markDirty()">
+                        </div>
+                        <div class="form-group">
+                            <label>Tagline</label>
+                            <input type="text" id="site-tagline" onchange="markDirty()">
+                        </div>
+                        <div class="form-group">
+                            <label>Description</label>
+                            <input type="text" id="site-description" onchange="markDirty()">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Phone</label>
+                                <input type="text" id="site-phone" onchange="markDirty()">
+                            </div>
+                            <div class="form-group">
+                                <label>Email</label>
+                                <input type="text" id="site-email" onchange="markDirty()">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Address</label>
+                            <input type="text" id="site-address" onchange="markDirty()">
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3>Social Media</h3>
+                        <div class="form-group">
+                            <label>Instagram URL</label>
+                            <input type="text" id="social-instagram" onchange="markDirty()">
+                        </div>
+                        <div class="form-group">
+                            <label>Facebook URL</label>
+                            <input type="text" id="social-facebook" onchange="markDirty()">
+                        </div>
+                        <div class="form-group">
+                            <label>TikTok URL</label>
+                            <input type="text" id="social-tiktok" onchange="markDirty()">
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ===== FULFILLMENT ===== -->
+                <section class="admin-section" id="section-fulfillment" style="display:none;">
+                    <div class="card">
+                        <h3>Fulfillment Settings</h3>
+                        <div class="form-group">
+                            <label>Pickup Address</label>
+                            <input type="text" id="fulfill-pickup" onchange="markDirty()">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Delivery Radius (miles)</label>
+                                <input type="number" id="fulfill-radius" onchange="markDirty()">
+                            </div>
+                            <div class="form-group">
+                                <label>Delivery Fee ($)</label>
+                                <input type="number" step="0.01" id="fulfill-fee" onchange="markDirty()">
+                            </div>
+                            <div class="form-group">
+                                <label>Free Delivery Minimum ($)</label>
+                                <input type="number" step="0.01" id="fulfill-free-min" onchange="markDirty()">
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ===== ANNOUNCEMENTS ===== -->
+                <section class="admin-section" id="section-announcements" style="display:none;">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Announcement Bar</h3>
+                            <button class="btn btn-sm" onclick="addAnnouncement()">+ Add</button>
+                        </div>
+                        <p class="help-text">The first announcement is displayed on the site. Remove all to hide the bar.</p>
+                        <div id="announcements-list"></div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+</html>
