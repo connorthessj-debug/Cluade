@@ -1,0 +1,203 @@
+{
+  "site": {
+    "name": "Le Besian Balls",
+    "tagline": "Handcrafted Cake Balls & Truffles",
+    "description": "Made with love in Kiefer, Oklahoma",
+    "phone": "(918) 555-0123",
+    "email": "hello@lebesianballs.com",
+    "address": "Kiefer, Oklahoma",
+    "url": "www.lebesianballs.com"
+  },
+  "hero": {
+    "headline": "Handcrafted Cake Balls & Truffles",
+    "subheadline": "Made with love by two passionate bakers in Kiefer, Oklahoma",
+    "cta_text": "Order Now",
+    "cta_link": "#menu",
+    "background_color": "#f9e8f0",
+    "slides": [
+      {
+        "title": "This Week's Flavors Are Here!",
+        "subtitle": "Six new rotating flavors every week",
+        "bg_color": "#f9e8f0"
+      },
+      {
+        "title": "Truffles Made From Scratch",
+        "subtitle": "Rich, decadent, and irresistible",
+        "bg_color": "#e8f0f9"
+      },
+      {
+        "title": "Order Pickup or Delivery",
+        "subtitle": "Fresh cake balls delivered to your door",
+        "bg_color": "#f0f9e8"
+      }
+    ]
+  },
+  "menu": {
+    "classics": [
+      {
+        "id": "classic-1",
+        "name": "Birthday Cake Ball",
+        "description": "Classic vanilla cake with rainbow sprinkles, dipped in white chocolate",
+        "price": 3.50,
+        "calories": 180,
+        "image": "assets/images/birthday-cake-ball.jpg",
+        "rating": 4.9,
+        "reviews": 245,
+        "available": true
+      },
+      {
+        "id": "classic-2",
+        "name": "Chocolate Fudge Ball",
+        "description": "Rich chocolate cake with fudge center, coated in dark chocolate",
+        "price": 3.50,
+        "calories": 210,
+        "image": "assets/images/chocolate-fudge-ball.jpg",
+        "rating": 4.8,
+        "reviews": 312,
+        "available": true
+      },
+      {
+        "id": "classic-3",
+        "name": "Red Velvet Truffle",
+        "description": "Southern red velvet cake with cream cheese, dipped in white chocolate",
+        "price": 3.75,
+        "calories": 195,
+        "image": "assets/images/red-velvet-truffle.jpg",
+        "rating": 4.9,
+        "reviews": 198,
+        "available": true
+      },
+      {
+        "id": "classic-4",
+        "name": "Peanut Butter Bliss",
+        "description": "Peanut butter cake with chocolate ganache, coated in milk chocolate",
+        "price": 3.50,
+        "calories": 220,
+        "image": "assets/images/peanut-butter-bliss.jpg",
+        "rating": 4.7,
+        "reviews": 167,
+        "available": true
+      },
+      {
+        "id": "classic-5",
+        "name": "Strawberry Shortcake Ball",
+        "description": "Strawberry cake with real berries, dipped in pink white chocolate",
+        "price": 3.75,
+        "calories": 175,
+        "image": "assets/images/strawberry-shortcake.jpg",
+        "rating": 4.8,
+        "reviews": 203,
+        "available": true
+      },
+      {
+        "id": "classic-6",
+        "name": "Lemon Drop Truffle",
+        "description": "Tangy lemon cake with lemon curd, coated in yellow white chocolate",
+        "price": 3.75,
+        "calories": 170,
+        "image": "assets/images/lemon-drop.jpg",
+        "rating": 4.7,
+        "reviews": 142,
+        "available": true
+      }
+    ],
+    "weekly": {
+      "week_label": "This Week's Flavors",
+      "date_range": "Mar 10 - 15",
+      "items": [
+        {
+          "id": "weekly-1",
+          "name": "Salted Caramel Pretzel Ball",
+          "description": "Caramel cake with pretzel crunch, drizzled with salted caramel and sea salt",
+          "price": 4.00,
+          "calories": 230,
+          "image": "assets/images/salted-caramel-pretzel.jpg",
+          "rating": 5.0,
+          "reviews": 28,
+          "available": true,
+          "tag": "NEW"
+        },
+        {
+          "id": "weekly-2",
+          "name": "Cookies & Cream Truffle",
+          "description": "Oreo-studded vanilla cake, dipped in white chocolate with cookie crumble topping",
+          "price": 4.00,
+          "calories": 215,
+          "image": "assets/images/cookies-cream.jpg",
+          "rating": 4.9,
+          "reviews": 34,
+          "available": true,
+          "tag": "FAN FAVORITE"
+        },
+        {
+          "id": "weekly-3",
+          "name": "Maple Pecan Pie Ball",
+          "description": "Pecan pie-inspired cake ball with real maple syrup glaze",
+          "price": 4.25,
+          "calories": 240,
+          "image": "assets/images/maple-pecan.jpg",
+          "rating": 4.8,
+          "reviews": 19,
+          "available": true,
+          "tag": "OKLAHOMA FAVORITE"
+        },
+        {
+          "id": "weekly-4",
+          "name": "Espresso Martini Truffle",
+          "description": "Coffee cake with espresso ganache, dusted with cocoa powder",
+          "price": 4.25,
+          "calories": 200,
+          "image": "assets/images/espresso-martini.jpg",
+          "rating": 4.9,
+          "reviews": 22,
+          "available": true,
+          "tag": "21+"
+        }
+      ]
+    }
+  },
+  "packs": [
+    {
+      "name": "4-Pack",
+      "count": 4,
+      "discount": 0,
+      "description": "Perfect for a treat"
+    },
+    {
+      "name": "6-Pack",
+      "count": 6,
+      "discount": 5,
+      "description": "Great for sharing"
+    },
+    {
+      "name": "12-Pack Party Box",
+      "count": 12,
+      "discount": 10,
+      "description": "Perfect for parties"
+    },
+    {
+      "name": "24-Pack Catering Box",
+      "count": 24,
+      "discount": 15,
+      "description": "Feed the whole crew"
+    }
+  ],
+  "about": {
+    "title": "Our Story",
+    "text": "We're two women who fell in love — with each other and with baking. What started as a kitchen experiment in Kiefer, Oklahoma turned into a full-blown obsession with creating the perfect cake ball. Every batch is handcrafted with premium ingredients and a whole lot of heart. Welcome to Le Besian Balls — where every bite is made with love.",
+    "image": "assets/images/about-us.jpg"
+  },
+  "fulfillment": {
+    "options": ["Pickup", "Local Delivery"],
+    "pickup_address": "Kiefer, Oklahoma",
+    "delivery_radius_miles": 25,
+    "delivery_fee": 5.00,
+    "free_delivery_minimum": 35.00
+  },
+  "social": {
+    "instagram": "https://instagram.com/lebesianballs",
+    "facebook": "https://facebook.com/lebesianballs",
+    "tiktok": "https://tiktok.com/@lebesianballs"
+  },
+  "announcements": []
+}
