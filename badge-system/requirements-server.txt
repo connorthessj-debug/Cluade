@@ -1,0 +1,7 @@
+# Python dependencies for the badge server (Gutenberg PC)
+# Install: pip install -r requirements-server.txt
+
+Flask>=3.0
+Pillow>=10.0
+gunicorn>=21.2
+requests>=2.31
