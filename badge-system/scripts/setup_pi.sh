@@ -39,7 +39,8 @@ sudo apt install -y \
     libavcodec-dev libavformat-dev libswscale-dev \
     libv4l-dev libxvidcore-dev libx264-dev \
     libgtk-3-dev libcanberra-gtk3-module \
-    libboost-all-dev
+    libboost-all-dev \
+    tesseract-ocr
 
 echo
 echo "=== Step 2: Python virtual environment ==="
@@ -50,7 +51,7 @@ source .venv/bin/activate
 echo
 echo "=== Step 3: Python packages (except dlib) ==="
 pip install --upgrade pip setuptools wheel
-pip install numpy opencv-python-headless Pillow requests
+pip install numpy opencv-python Pillow requests pytesseract
 
 echo
 echo "=== Step 4: dlib (this takes 30-60 minutes on Pi 4) ==="
@@ -72,7 +73,11 @@ echo "Activate the environment with:"
 echo "  source .venv/bin/activate"
 echo
 echo "Next steps:"
-echo "  1. Generate synthetic data:  cd pi/sample_data && python generate_synthetic.py"
-echo "  2. Test recognition:         cd pi && python recognize.py --dry-run --preview"
+echo "  1. Test kiosk mode:          cd pi && python kiosk.py --no-gpio --dry-run"
+echo "  2. Test license reader:      cd pi && python license_reader.py --camera"
 echo "  3. Set up WireGuard:         bash scripts/setup_wireguard.sh pi"
 echo "  4. Configure environment:    cp .env.example .env && nano .env"
+echo
+echo "Two operating modes:"
+echo "  - Kiosk mode (license scan): python pi/kiosk.py"
+echo "  - Passive recognition:       python pi/recognize.py --preview"

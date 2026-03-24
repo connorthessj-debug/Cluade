@@ -1,20 +1,25 @@
 # Facial Recognition Badge System
 
-Automatic badge printing when a recognized person approaches the office window.
-A Raspberry Pi with a camera runs facial recognition locally, then securely
-sends the person's identity to a badge server that triggers Gutenberg to print.
+Automatic badge printing using a Raspberry Pi kiosk at the office window.
+A person presses a button, holds their driver's license to the camera, and
+the system reads it via OCR + face extraction, then securely sends the data
+to a badge server that triggers Gutenberg to print their badge.
+
+**Two operating modes:**
+- **Kiosk mode** (primary): Button-activated license scanning with on-screen guide
+- **Passive mode**: Continuous facial recognition against an enrolled database
 
 ## Architecture
 
 ```
 ┌──────────────────────────┐     WireGuard VPN      ┌─────────────────────────┐
-│   RASPBERRY PI           │    (encrypted tunnel)   │   GUTENBERG PC          │
+│   RASPBERRY PI KIOSK     │    (encrypted tunnel)   │   GUTENBERG PC          │
 │                          │ ─────────────────────►  │                         │
-│  Camera → Recognition    │   HTTPS + API Key       │  Flask server           │
-│  Match against database  │   POST /api/print-badge │  → Gutenberg adapter    │
-│  Only sends name + ID    │   (name + ID only)      │  → Badge printer        │
-│  (no biometric data      │                         │                         │
-│   leaves the device)     │                         │                         │
+│  [Button] → Screen on    │   HTTPS + API Key       │  Flask server           │
+│  Camera → Show feed      │   POST /api/print-badge │  → Gutenberg adapter    │
+│  Hold up license         │   (name + ID only)      │  → Badge printer        │
+│  OCR → Extract name/ID   │                         │                         │
+│  Confirm → Send          │                         │                         │
 └──────────────────────────┘                         └─────────────────────────┘
 ```
 
@@ -38,14 +43,15 @@ git clone <repo-url> && cd Cluade/badge-system
 # Install dependencies (takes 30-60 min for dlib compilation)
 bash scripts/setup_pi.sh
 
-# Generate synthetic test data
+# Test the kiosk (keyboard mode, no GPIO needed, no server needed)
 source .venv/bin/activate
-cd pi/sample_data
-python generate_synthetic.py --source olivetti --count 10 --output ../known_faces.pkl
+cd pi
+python kiosk.py --no-gpio --dry-run
+# Press SPACE → hold license to camera → SPACE to capture → ENTER to confirm
 
-# Test recognition (dry run, no server needed)
-cd ..
-python recognize.py --dry-run --preview
+# Or test the license reader directly
+python license_reader.py --camera
+# Press SPACE to capture, see parsed fields
 ```
 
 ### 2. Set up the Badge Server (Gutenberg PC)
@@ -91,11 +97,14 @@ bash scripts/setup_wireguard.sh pi
 # On the server:
 BADGE_API_KEY=your-key python server/app.py --tls
 
-# On the Pi:
+# On the Pi — Kiosk mode (license scanning):
+BADGE_API_KEY=your-key BADGE_SERVER_URL=https://10.0.0.1:5000 python pi/kiosk.py
+
+# Or — Passive mode (facial recognition):
 BADGE_API_KEY=your-key BADGE_SERVER_URL=https://10.0.0.1:5000 python pi/recognize.py
 ```
 
-### 5. Enroll Real People (when photos become available)
+### 5. Enroll Real People (for passive recognition mode)
 
 ```bash
 # Delete synthetic data
@@ -112,9 +121,11 @@ python pi/enroll.py --id EMP-002 --name "John Smith" --dept "Sales" --capture 5
 badge-system/
 ├── pi/                         # Raspberry Pi code
 │   ├── config.py               # Settings (from env vars)
-│   ├── encodings_db.py         # Face encoding database manager
+│   ├── kiosk.py                # KIOSK MODE: button → camera → OCR → badge
+│   ├── license_reader.py       # Driver's license OCR + face extraction
+│   ├── recognize.py            # PASSIVE MODE: continuous face recognition
 │   ├── enroll.py               # Enroll people (photos or camera)
-│   ├── recognize.py            # Main recognition loop
+│   ├── encodings_db.py         # Face encoding database manager
 │   └── sample_data/
 │       └── generate_synthetic.py  # Generate test data
 │
@@ -154,9 +165,22 @@ Set `GUTENBERG_MODE` in your `.env`:
 
 - **Raspberry Pi 4 or 5** (2GB+ RAM recommended)
 - **USB webcam** or **Pi Camera Module** (CSI)
+- **Display** — HDMI monitor or Pi DSI touchscreen (for kiosk mode)
+- **Push button** — connected to GPIO pin 17 (or any configurable pin)
 - **MicroSD card** (16GB+)
 - **Power supply** for the Pi
 - **Badge printer** connected to the Gutenberg PC
+
+### GPIO Wiring (Kiosk Button)
+
+```
+GPIO 17 ──── [Button] ──── GND
+```
+
+The button uses an internal pull-up resistor. Pressing connects GPIO 17 to
+ground, triggering the scan. No external resistor needed.
+
+You can also use keyboard SPACE as a fallback with `--no-gpio`.
 
 ## End-to-End Test
 

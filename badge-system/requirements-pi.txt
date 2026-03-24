@@ -5,10 +5,17 @@
 # The setup_pi.sh script handles this automatically.
 
 face_recognition==1.3.0
-opencv-python-headless>=4.9.0
+opencv-python>=4.9.0
 numpy>=1.24
 requests>=2.31
 Pillow>=10.0
+
+# OCR for driver's license reading (kiosk mode)
+# Also requires system package: sudo apt install tesseract-ocr
+pytesseract>=0.3.10
+
+# GPIO button support (Raspberry Pi only, not needed on dev machines)
+# RPi.GPIO>=0.7.1
 
 # Optional: encrypt the face encoding database at rest
 cryptography>=41.0

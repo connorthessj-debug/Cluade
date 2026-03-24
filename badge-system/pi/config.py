@@ -46,3 +46,16 @@ COOLDOWN_SECONDS = int(os.environ.get("BADGE_COOLDOWN", "300"))
 
 # --- Device Identity ---
 DEVICE_ID = os.environ.get("BADGE_DEVICE_ID", "pi-front-desk-01")
+
+# --- Kiosk Mode (license scanning) ---
+# GPIO pin for the physical trigger button (BCM numbering).
+KIOSK_GPIO_PIN = int(os.environ.get("KIOSK_GPIO_PIN", "17"))
+
+# Seconds to show camera feed before auto-capturing. 0 = manual only.
+KIOSK_COUNTDOWN_SECONDS = int(os.environ.get("KIOSK_COUNTDOWN", "10"))
+
+# Return to idle screen after this many seconds of inactivity.
+KIOSK_IDLE_TIMEOUT = int(os.environ.get("KIOSK_IDLE_TIMEOUT", "10"))
+
+# Window title for the kiosk display.
+KIOSK_WINDOW_NAME = os.environ.get("KIOSK_WINDOW_NAME", "Badge Kiosk")
