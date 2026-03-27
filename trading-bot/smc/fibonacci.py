@@ -1,194 +1,126 @@
-"""Fibonacci retracement levels and Optimal Trade Entry (OTE) zones.
+"""Fibonacci retracement and Optimal Trade Entry (OTE) zone calculation.
 
-Fibonacci ratios derived from the golden ratio (1.618) are used extensively
-in SMC/ICT methodology to identify high-probability retracement zones where
-institutional orders are likely resting.
+The OTE zone (0.618 - 0.786 Fibonacci retracement) is considered the
+highest-probability entry zone in ICT methodology. When price retraces into
+this zone within a trending market, it offers optimal risk-to-reward entries
+aligned with institutional order flow.
 
 Key concepts:
-    - **Fibonacci retracement**: Horizontal lines at key ratios (23.6%,
-      38.2%, 50%, 61.8%, 70.5%, 78.6%) between a swing high and swing low,
-      indicating potential support/resistance levels during a pullback.
-    - **OTE (Optimal Trade Entry)**: The zone between the 61.8% and 78.6%
-      retracement levels. This is ICT's preferred entry zone because it
-      offers the best risk-to-reward ratio while still having a high
-      probability of holding as support/resistance.
-    - **Premium/Discount**: The 50% level divides the range into premium
-      (above 50%, expensive, good for selling) and discount (below 50%,
-      cheap, good for buying).
+    - **Fibonacci levels**: Standard retracement levels (0.236, 0.382, 0.5,
+      0.618, 0.786) measured from swing high to swing low (or vice versa).
+    - **OTE zone**: The 0.618 to 0.786 retracement zone, where institutional
+      traders are most likely to re-enter after a pullback.
+    - **Premium zone**: Above the 0.5 level in a bearish retracement (above
+      equilibrium -- expensive). Sell setups are favored here.
+    - **Discount zone**: Below the 0.5 level in a bullish retracement (below
+      equilibrium -- cheap). Buy setups are favored here.
 
 Usage:
-    >>> ote = calculate_ote_zone(swing_high=50000, swing_low=48000, direction='bullish')
-    >>> print(f"OTE zone: {ote['ote_low']:.2f} - {ote['ote_high']:.2f}")
-    >>> if is_in_discount(current_price, 50000, 48000):
-    ...     print("Price is in discount zone - look for longs")
+    >>> levels = get_fib_levels(swing_low=1.0800, swing_high=1.1000)
+    >>> ote = calculate_ote_zone(swing_low=1.0800, swing_high=1.1000)
+    >>> print(f"OTE zone: {ote['ote_low']:.4f} - {ote['ote_high']:.4f}")
 """
 
-import numpy as np
+from typing import Dict
+
+from .models import SwingPoint
 
 
-# Standard Fibonacci retracement ratios used in ICT/SMC analysis
-_FIB_RATIOS = {
-    0.0: 0.0,
-    0.236: 0.236,
-    0.382: 0.382,
-    0.5: 0.5,
-    0.618: 0.618,
-    0.705: 0.705,
-    0.786: 0.786,
-    1.0: 1.0,
-}
+# Standard Fibonacci retracement levels.
+FIB_LEVELS = [0.0, 0.236, 0.382, 0.5, 0.618, 0.786, 1.0]
+
+
+def get_fib_levels(
+    swing_low: float,
+    swing_high: float,
+) -> Dict[float, float]:
+    """Calculate Fibonacci retracement price levels.
+
+    Measures the retracement from a swing high back down toward the swing low.
+    Level 0.0 is the swing high (no retracement) and level 1.0 is the swing
+    low (full retracement).
+
+    Args:
+        swing_low: The lower price of the measured move.
+        swing_high: The upper price of the measured move.
+
+    Returns:
+        Dict mapping each Fibonacci ratio to its price level.
+    """
+    diff = swing_high - swing_low
+    return {level: swing_high - diff * level for level in FIB_LEVELS}
 
 
 def calculate_ote_zone(
-    swing_high: float,
     swing_low: float,
-    direction: str,
-) -> dict:
+    swing_high: float,
+) -> Dict[str, float]:
     """Calculate the Optimal Trade Entry (OTE) zone.
 
-    The OTE zone sits between the 61.8% and 78.6% Fibonacci retracement
-    levels and represents ICT's preferred entry area. It provides an
-    excellent risk-to-reward ratio because entries near the extremes of
-    the retracement zone allow tight stop losses while targeting the full
-    continuation of the trend.
-
-    For a **bullish** retracement (buying the dip after an up-move):
-        - Price retraces downward from swing_high toward swing_low.
-        - The 0.618 level = swing_high - range * 0.618 (shallower retracement).
-        - The 0.786 level = swing_high - range * 0.786 (deeper retracement).
-        - OTE zone: from 0.786 level (bottom) to 0.618 level (top).
-        - Traders look to buy within this zone.
-
-    For a **bearish** retracement (selling the rally after a down-move):
-        - Price retraces upward from swing_low toward swing_high.
-        - The 0.618 level = swing_low + range * 0.618 (shallower retracement).
-        - The 0.786 level = swing_low + range * 0.786 (deeper retracement).
-        - OTE zone: from 0.618 level (bottom) to 0.786 level (top).
-        - Traders look to sell within this zone.
+    The OTE zone spans the 0.618 to 0.786 Fibonacci retracement of the
+    measured move. For a bullish setup (retracement of an up-move), the
+    OTE zone represents the discount area where buyers are expected to
+    step in.
 
     Args:
-        swing_high: The swing high price.
-        swing_low: The swing low price.
-        direction: 'bullish' (buying retracement) or 'bearish' (selling rally).
+        swing_low: The lower price of the measured move.
+        swing_high: The upper price of the measured move.
 
     Returns:
         Dict with keys:
-            - ``ote_high``: Upper boundary of the OTE zone.
-            - ``ote_low``: Lower boundary of the OTE zone.
-            - ``premium_discount_line``: The 50% level dividing premium/discount.
-            - ``direction``: The trade direction.
-
-    Raises:
-        ValueError: If swing_high <= swing_low or direction is invalid.
+            - ``ote_high``: upper boundary (0.618 retracement price)
+            - ``ote_low``: lower boundary (0.786 retracement price)
+            - ``equilibrium``: the 0.5 level
     """
-    if swing_high <= swing_low:
-        raise ValueError(
-            f"swing_high ({swing_high}) must be greater than swing_low ({swing_low})"
-        )
-
-    if direction not in ('bullish', 'bearish'):
-        raise ValueError(f"direction must be 'bullish' or 'bearish', got '{direction}'")
-
-    price_range = swing_high - swing_low
-    midpoint = swing_low + price_range * 0.5
-
-    if direction == 'bullish':
-        # Retracement from high: price pulled back, looking to buy
-        level_618 = swing_high - price_range * 0.618
-        level_786 = swing_high - price_range * 0.786
-        ote_high = level_618  # Shallower (higher price)
-        ote_low = level_786   # Deeper (lower price)
-    else:
-        # Retracement from low: price rallied back, looking to sell
-        level_618 = swing_low + price_range * 0.618
-        level_786 = swing_low + price_range * 0.786
-        ote_high = level_786  # Deeper retracement (higher price)
-        ote_low = level_618   # Shallower (lower price)
-
+    diff = swing_high - swing_low
     return {
-        'ote_high': float(ote_high),
-        'ote_low': float(ote_low),
-        'premium_discount_line': float(midpoint),
-        'direction': direction,
+        "ote_high": swing_high - diff * 0.618,
+        "ote_low": swing_high - diff * 0.786,
+        "equilibrium": swing_high - diff * 0.5,
     }
 
 
-def is_in_premium(price: float, swing_high: float, swing_low: float) -> bool:
-    """Check if a price is in the premium zone (above 50% of the range).
+def is_in_premium(
+    price: float,
+    swing_low: float,
+    swing_high: float,
+) -> bool:
+    """Check if a price is in the premium zone (above equilibrium).
 
-    The premium zone is the upper half of the swing range. Prices in this
-    zone are considered "expensive" and are better suited for selling
-    (shorting) rather than buying.
-
-    In SMC, smart money sells in premium and buys in discount.
-
-    Args:
-        price: Current price to evaluate.
-        swing_high: The swing high defining the range.
-        swing_low: The swing low defining the range.
-
-    Returns:
-        True if the price is above the 50% level of the range.
-    """
-    midpoint = swing_low + (swing_high - swing_low) * 0.5
-    return price > midpoint
-
-
-def is_in_discount(price: float, swing_high: float, swing_low: float) -> bool:
-    """Check if a price is in the discount zone (below 50% of the range).
-
-    The discount zone is the lower half of the swing range. Prices in this
-    zone are considered "cheap" and are better suited for buying (going long)
-    rather than selling.
-
-    In SMC, smart money buys in discount and sells in premium.
+    The premium zone is above the 0.5 Fibonacci level. In a downtrend
+    retracement, this is where price is considered expensive and short
+    entries are favored.
 
     Args:
-        price: Current price to evaluate.
-        swing_high: The swing high defining the range.
-        swing_low: The swing low defining the range.
+        price: The price to evaluate.
+        swing_low: The lower price of the measured range.
+        swing_high: The upper price of the measured range.
 
     Returns:
-        True if the price is below the 50% level of the range.
+        True if price is in the premium zone.
     """
-    midpoint = swing_low + (swing_high - swing_low) * 0.5
-    return price < midpoint
+    equilibrium = (swing_high + swing_low) / 2.0
+    return price > equilibrium
 
 
-def get_fib_levels(swing_high: float, swing_low: float) -> dict:
-    """Calculate all standard Fibonacci retracement levels.
+def is_in_discount(
+    price: float,
+    swing_low: float,
+    swing_high: float,
+) -> bool:
+    """Check if a price is in the discount zone (below equilibrium).
 
-    Computes horizontal price levels at each standard Fibonacci ratio
-    between the swing high and swing low. These levels are measured as
-    retracements from the high (i.e., from top down):
-
-        level_price = swing_high - (swing_high - swing_low) * ratio
-
-    So the 0.0 level equals swing_high (no retracement) and the 1.0
-    level equals swing_low (full retracement).
-
-    Standard ratios: 0.0, 0.236, 0.382, 0.5, 0.618, 0.705, 0.786, 1.0
+    The discount zone is below the 0.5 Fibonacci level. In an uptrend
+    retracement, this is where price is considered cheap and long entries
+    are favored.
 
     Args:
-        swing_high: The swing high price.
-        swing_low: The swing low price.
+        price: The price to evaluate.
+        swing_low: The lower price of the measured range.
+        swing_high: The upper price of the measured range.
 
     Returns:
-        Dict mapping ratio (float) to price level (float).
-        Example: {0.0: 50000.0, 0.236: 49528.0, ..., 1.0: 48000.0}
-
-    Raises:
-        ValueError: If swing_high <= swing_low.
+        True if price is in the discount zone.
     """
-    if swing_high <= swing_low:
-        raise ValueError(
-            f"swing_high ({swing_high}) must be greater than swing_low ({swing_low})"
-        )
-
-    price_range = swing_high - swing_low
-    levels: dict = {}
-
-    for ratio in _FIB_RATIOS:
-        levels[ratio] = float(swing_high - price_range * ratio)
-
-    return levels
+    equilibrium = (swing_high + swing_low) / 2.0
+    return price < equilibrium
