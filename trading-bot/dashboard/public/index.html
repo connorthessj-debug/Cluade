@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trading Bot Dashboard</title>
+  <link rel="stylesheet" href="/css/dashboard.css">
+  <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-left">
+      <h1 class="header-title">Trading Bot Dashboard</h1>
+      <span id="connection-status" class="connection-indicator disconnected">
+        <span class="status-dot"></span>
+        <span class="status-text">Disconnected</span>
+      </span>
+    </div>
+    <div class="header-right">
+      <div class="header-stat">
+        <span class="header-stat-label">Total P&amp;L</span>
+        <span id="header-total-pnl" class="header-stat-value">$0.00</span>
+      </div>
+      <div class="header-stat">
+        <span class="header-stat-label">Win Rate</span>
+        <span id="header-win-rate" class="header-stat-value">0.00%</span>
+      </div>
+      <div class="header-stat">
+        <span class="header-stat-label">Trades</span>
+        <span id="header-trade-count" class="header-stat-value">0</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Tab Navigation -->
+  <nav class="tab-bar">
+    <button class="tab-btn active" data-tab="overview">Overview</button>
+    <button class="tab-btn" data-tab="trades">Trades</button>
+    <button class="tab-btn" data-tab="arbitrage">Arbitrage</button>
+    <button class="tab-btn" data-tab="analytics">Analytics</button>
+    <button class="tab-btn" data-tab="settings">Settings</button>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+
+    <!-- Overview Tab -->
+    <section id="tab-overview" class="tab-panel active">
+      <div class="overview-grid">
+        <div class="card overview-chart-card">
+          <div class="card-header">
+            <h3>Equity Curve</h3>
+          </div>
+          <div id="equity-chart-container" class="chart-container"></div>
+        </div>
+        <div class="card overview-positions-card">
+          <div class="card-header">
+            <h3>Open Positions</h3>
+          </div>
+          <div id="positions-list" class="positions-list">
+            <p class="empty-state">No open positions</p>
+          </div>
+        </div>
+      </div>
+      <div class="card-header section-header">
+        <h3>Active Bots</h3>
+      </div>
+      <div id="bot-cards-container" class="bot-cards-grid">
+        <p class="empty-state">No bots configured</p>
+      </div>
+      <div class="card events-card">
+        <div class="card-header">
+          <h3>Recent Events</h3>
+        </div>
+        <div id="events-feed" class="events-feed">
+          <p class="empty-state">No recent events</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Trades Tab -->
+    <section id="tab-trades" class="tab-panel">
+      <div id="trade-table-container"></div>
+    </section>
+
+    <!-- Arbitrage Tab -->
+    <section id="tab-arbitrage" class="tab-panel">
+      <div class="card">
+        <div class="card-header"><h3>Arbitrage Monitor</h3></div>
+        <div id="arbitrage-container">
+          <p class="empty-state">Arbitrage data will appear when the arbitrage bot is active.</p>
+          <div id="arb-opportunities" class="arb-grid"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Analytics Tab -->
+    <section id="tab-analytics" class="tab-panel">
+      <div id="pnl-chart-container"></div>
+    </section>
+
+    <!-- Settings Tab -->
+    <section id="tab-settings" class="tab-panel">
+      <div id="settings-panel-container"></div>
+    </section>
+
+  </main>
+
+  <!-- Scripts (order matters) -->
+  <script src="/js/utils.js"></script>
+  <script src="/js/charts.js"></script>
+  <script src="/js/components/bot-card.js"></script>
+  <script src="/js/components/trade-table.js"></script>
+  <script src="/js/components/pnl-chart.js"></script>
+  <script src="/js/components/settings-panel.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
