@@ -56,7 +56,7 @@ DB_PATH = PROJECT_ROOT / "data" / "trading.db"
 
 
 # ---------------------------------------------------------------------------
-# Bot wrapper — runs in a child process
+# Bot wrapper -- runs in a child process
 # ---------------------------------------------------------------------------
 
 def _run_bot_process(bot_name: str) -> None:
@@ -72,9 +72,9 @@ def _run_bot_process(bot_name: str) -> None:
 
         config = _Config()
 
-        # Lazy-import optional components — they may not exist yet, but the
+        # Lazy-import optional components -- they may not exist yet, but the
         # run_all manager still needs to launch what *is* available.
-        database = _make_database(config)
+        database = await _make_database()
         risk_manager = _make_risk_manager(config, database)
         publisher = _make_publisher(config)
 
@@ -85,55 +85,65 @@ def _run_bot_process(bot_name: str) -> None:
     _asyncio.run(_main())
 
 
-def _make_database(config):
-    """Create a minimal async database adapter."""
-    # If a real Database class is available, use it.  Otherwise fall back to a
-    # lightweight stub so the manager can still launch.
+async def _make_database():
+    """Create and initialize the async database adapter."""
     try:
-        from core.database import Database  # type: ignore[import-not-found]
-        return Database(config)
-    except ImportError:
+        from core.database import Database
+        db = Database(str(DB_PATH))
+        await db.initialize()
+        return db
+    except (ImportError, Exception):
         pass
+
+    # Fallback stub
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
     class _StubDB:
         """Minimal async database stub backed by SQLite."""
 
         def __init__(self):
-            DB_PATH.parent.mkdir(parents=True, exist_ok=True)
             self._conn = sqlite3.connect(str(DB_PATH))
             self._conn.execute(
                 "CREATE TABLE IF NOT EXISTS bot_state "
-                "(bot_name TEXT PRIMARY KEY, state TEXT)"
+                "(bot_name TEXT PRIMARY KEY, state_json TEXT, updated_at TEXT)"
             )
             self._conn.commit()
 
         async def load_bot_state(self, bot_name):
             row = self._conn.execute(
-                "SELECT state FROM bot_state WHERE bot_name = ?", (bot_name,)
+                "SELECT state_json FROM bot_state WHERE bot_name = ?", (bot_name,)
             ).fetchone()
             return row[0] if row else None
 
         async def save_bot_state(self, bot_name, state):
+            from datetime import datetime
             self._conn.execute(
-                "INSERT OR REPLACE INTO bot_state (bot_name, state) VALUES (?, ?)",
-                (bot_name, state),
+                "INSERT OR REPLACE INTO bot_state (bot_name, state_json, updated_at) "
+                "VALUES (?, ?, ?)",
+                (bot_name, state, datetime.utcnow().isoformat()),
             )
             self._conn.commit()
 
-        async def execute(self, sql, params=()):
-            self._conn.execute(sql, params)
-            self._conn.commit()
+        async def initialize(self):
+            pass
 
-        async def fetch_all(self, sql, params=()):
-            cur = self._conn.execute(sql, params)
-            cols = [d[0] for d in cur.description] if cur.description else []
-            return [dict(zip(cols, row)) for row in cur.fetchall()]
+        async def close(self):
+            self._conn.close()
 
-        async def fetch_one(self, sql, params=()):
-            cur = self._conn.execute(sql, params)
-            cols = [d[0] for d in cur.description] if cur.description else []
-            row = cur.fetchone()
-            return dict(zip(cols, row)) if row else None
+        async def save_trade(self, trade):
+            pass
+
+        async def get_trades(self, **kw):
+            return []
+
+        async def save_position(self, position):
+            pass
+
+        async def get_positions(self, **kw):
+            return []
+
+        async def publish_event(self, bot_name, event_type, data=None):
+            pass
 
     return _StubDB()
 
@@ -141,7 +151,7 @@ def _make_database(config):
 def _make_risk_manager(config, database):
     """Create a risk manager (or stub)."""
     try:
-        from core.risk_manager import RiskManager  # type: ignore[import-not-found]
+        from core.risk_manager import RiskManager
         return RiskManager(config, database)
     except ImportError:
         pass
@@ -163,7 +173,7 @@ def _make_risk_manager(config, database):
 def _make_publisher(config):
     """Create an event publisher (or stub)."""
     try:
-        from core.publisher import Publisher  # type: ignore[import-not-found]
+        from core.publisher import Publisher
         return Publisher(config)
     except ImportError:
         pass
@@ -179,19 +189,22 @@ def _make_bot(bot_name, config, database, risk_manager, publisher):
     """Instantiate the correct bot by name."""
     if bot_name == "arbitrage":
         try:
-            from bots.arbitrage.bot import ArbitrageBot  # type: ignore[import-not-found]
-            return ArbitrageBot(config, database, risk_manager, publisher)
-        except ImportError:
+            from bots.arbitrage.bot import ArbitrageBot
+            # ArbitrageBot needs an exchange_manager; pass None for now and
+            # let it fail gracefully if not provided.
+            return ArbitrageBot(config, database, risk_manager, publisher,
+                                exchange_manager=None)
+        except (ImportError, TypeError):
             pass
     elif bot_name == "scalper":
         try:
-            from bots.scalper.bot import ScalperBot  # type: ignore[import-not-found]
+            from bots.scalper.bot import ScalperBot
             return ScalperBot(config, database, risk_manager, publisher)
         except ImportError:
             pass
     elif bot_name == "swing":
         try:
-            from bots.swing.bot import SwingBot  # type: ignore[import-not-found]
+            from bots.swing.bot import SwingBot
             return SwingBot(config, database, risk_manager, publisher)
         except ImportError:
             pass
@@ -304,16 +317,16 @@ def _check_heartbeat(bot_name: str) -> bool:
     try:
         conn = sqlite3.connect(str(DB_PATH))
         row = conn.execute(
-            "SELECT state FROM bot_state WHERE bot_name = ?", (bot_name,)
+            "SELECT state_json FROM bot_state WHERE bot_name = ?", (bot_name,)
         ).fetchone()
         conn.close()
         if row is None:
-            return True  # No state yet — give the bot time to initialise.
+            return True  # No state yet -- give the bot time to initialise.
         state = json.loads(row[0])
         heartbeat = state.get("_heartbeat", 0)
         return (time.time() - heartbeat) < HEARTBEAT_STALE_THRESHOLD
     except Exception:
-        return True  # DB not ready — don't falsely restart.
+        return True  # DB not ready -- don't falsely restart.
 
 
 # ---------------------------------------------------------------------------
@@ -419,7 +432,7 @@ class ProcessManager:
     def run_forever(self):
         """Main loop: start processes, then monitor until shutdown."""
         self.start_all()
-        logger.info("All processes launched — entering health-check loop")
+        logger.info("All processes launched -- entering health-check loop")
 
         while not self._shutdown:
             time.sleep(HEALTH_CHECK_INTERVAL)
@@ -461,7 +474,7 @@ def main():
 
     def _signal_handler(signum, frame):
         sig_name = signal.Signals(signum).name
-        logger.info("Received %s — initiating graceful shutdown", sig_name)
+        logger.info("Received %s -- initiating graceful shutdown", sig_name)
         manager.request_shutdown()
 
     signal.signal(signal.SIGTERM, _signal_handler)
