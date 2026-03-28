@@ -62,6 +62,16 @@ class MultiBridge:
         else:
             logger.info("MultiBridge: Binance not configured, skipping")
 
+        if any_connected:
+            connected = []
+            if self.oanda:
+                connected.append("OANDA")
+            if self.binance:
+                connected.append("Binance")
+            logger.info("MultiBridge: Active exchanges: %s", " + ".join(connected))
+        else:
+            logger.error("MultiBridge: No exchanges connected!")
+
         return any_connected
 
     def disconnect(self):

@@ -34,10 +34,11 @@ def _handle_signal(signum, frame):
     _shutdown = True
 
 
-def is_market_open() -> bool:
+def is_forex_market_open() -> bool:
     """
     Check if the forex market is open.
     Forex trades Sun 21:00 UTC to Fri 21:00 UTC.
+    Crypto trades 24/7 — this only gates forex/metals/indices.
     """
     now = datetime.now(timezone.utc)
     weekday = now.weekday()  # 0=Mon, 6=Sun
@@ -137,15 +138,19 @@ def main():
                 )
                 last_heartbeat = time.time()
 
-            # Check if market is open
-            if not is_market_open():
-                logger.debug("Market closed. Sleeping 60s...")
+            # Check if any market is open
+            # Crypto trades 24/7; forex only during weekday sessions
+            forex_open = is_forex_market_open()
+            has_crypto = bridge.binance is not None
+
+            if not forex_open and not has_crypto:
+                logger.debug("All markets closed. Sleeping 60s...")
                 time.sleep(60)
                 continue
 
-            # Ensure MT5 is still connected
+            # Ensure exchanges are still connected
             if not bridge.ensure_connected():
-                logger.error("OANDA connection lost. Retrying next cycle...")
+                logger.error("Exchange connection lost. Retrying next cycle...")
                 time.sleep(OVERSEER_CYCLE_SECONDS)
                 continue
 
