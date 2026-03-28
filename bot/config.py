@@ -4,18 +4,17 @@ All settings for FTMO compliance, instruments, timeframes, and MT5 connection.
 """
 
 # ─── Mode ──────────────────────────────────────────────────────
-PAPER_TRADING = True           # True = OANDA demo (paper), False = live/FTMO
+PAPER_TRADING = True           # True = demo (paper), False = live/FTMO
 DUAL_AGENT_MODE = True         # True = run BOTH agents simultaneously
 
-# ─── MT5 Connection (OANDA Demo) ──────────────────────────────
-MT5_LOGIN = 0                  # Your OANDA MT5 demo account number
-MT5_PASSWORD = ""              # Your OANDA MT5 demo password
-MT5_SERVER = "OANDA-OandaPractice-1"  # OANDA practice server
+# ─── MT5 Connection (Demo Account) ───────────────────────────
+MT5_LOGIN = 0                  # Your MT5 demo account number
+MT5_PASSWORD = ""              # Your MT5 demo password
+MT5_SERVER = ""                # Your broker's MT5 demo server name
 MT5_PATH = ""                  # Path to terminal64.exe (Linux: via Wine)
 
-# Common OANDA MT5 servers:
-#   Demo:  "OANDA-OandaPractice-1" or "OANDA-Demo-1"
-#   Live:  "OANDA-OandaLive-1" (do NOT use in paper mode)
+# To find your server name: open MT5 → File → Open an Account → your server is listed
+# Example: "MetaQuotes-Demo", "ICMarketsSC-Demo", "FPMarkets-Demo", etc.
 
 # ─── FTMO Risk Limits ─────────────────────────────────────────
 ACCOUNT_BALANCE = 100_000      # Starting balance (update from MT5 on init)
@@ -29,8 +28,9 @@ MAX_CONCURRENT_TRADES = 6      # Max simultaneous positions (3 per agent)
 DAILY_LOSS_BUFFER_PCT = 0.5    # Stop trading at 4.5% daily loss
 TOTAL_DD_BUFFER_PCT = 1.0      # Stop trading at 9% total drawdown
 
-# ─── Instruments (OANDA MT5 symbol format) ─────────────────────
-# OANDA uses standard symbols on MT5 but verify in your Market Watch
+# ─── Instruments ───────────────────────────────────────────────
+# Verify symbol names in your broker's MT5 Market Watch — they vary by broker
+# (e.g., "EURUSD" vs "EURUSD." vs "EURUSDm")
 FOREX_PAIRS = [
     "EURUSD", "GBPUSD", "USDJPY", "USDCHF",
     "AUDUSD", "NZDUSD", "USDCAD",
@@ -41,7 +41,7 @@ GOLD = ["XAUUSD"]
 
 INDICES = ["US30", "NAS100", "SPX500", "GER40"]
 
-FUTURES = []  # OANDA demo doesn't offer futures — leave empty
+FUTURES = ["US30.f", "NAS100.f"]  # Adjust symbols to match your broker
 
 # All tradeable instruments
 INSTRUMENTS = FOREX_PAIRS + GOLD + INDICES + FUTURES

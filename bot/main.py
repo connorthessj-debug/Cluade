@@ -72,7 +72,7 @@ def main():
 
     if PAPER_TRADING:
         logger.info(
-            "*** PAPER MODE: Trades execute on OANDA demo account. ***\n"
+            "*** PAPER MODE: Trades execute on MT5 demo account. ***\n"
             "*** No real money at risk. Both agents learning simultaneously. ***"
         )
 
