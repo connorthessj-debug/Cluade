@@ -1,52 +1,101 @@
-# CLAUDE.md
+# SMC Dual-Agent System with Market Regime Intelligence (FTMO)
 
-This file provides guidance for AI assistants (and developers) working in this repository.
+## Objective
+Deploy the correct trading strategy based on real-time market conditions.
 
-## Project Overview
+---
 
-**Cluade** is a project repository for Claude-related tools and utilities. The project is in its early stages with foundational structure being established.
+## Agents
 
-## Repository Structure
+### Scalping Agent
+- Timeframe: M1–M5
+- Used in:
+  - High volatility
+  - Liquidity sweeps
+  - Session opens
 
-```
-Cluade/
-├── CLAUDE.md       # AI assistant guidance (this file)
-└── README.md       # Project description
-```
+---
 
-## Development Workflow
+### Swing Agent
+- Timeframe: H1–D1
+- Used in:
+  - Trending markets
+  - Clean structure
 
-### Branching
+---
 
-- The default branch is `main`
-- Feature branches should use the `claude/` prefix (e.g., `claude/feature-name-<id>`)
-- Always push feature branches with `git push -u origin <branch-name>`
+### Overseer Agent (MASTER CONTROL)
 
-### Commits
+Responsibilities:
 
-- Write clear, descriptive commit messages
-- Use imperative mood in commit subjects (e.g., "Add feature" not "Added feature")
-- Keep commits focused — one logical change per commit
+1. Detect market regime
+2. Select which agent is active
+3. Enforce FTMO rules
+4. Block trades in bad conditions
 
-### Code Style
+---
 
-- Follow existing patterns and conventions in the codebase
-- Keep files focused and avoid unnecessary bloat
-- Prefer editing existing files over creating new ones when practical
+## Market Regime Detection
 
-## Key Conventions
+Each cycle classify market as:
 
-- **No over-engineering**: Only add what is needed for the current task
-- **Security first**: Never commit secrets, credentials, or `.env` files
-- **Simplicity**: Favor straightforward solutions over clever abstractions
+- TRENDING
+- RANGING
+- HIGH VOLATILITY
+- LOW VOLATILITY
 
-## Commands
+---
 
-No build system, test framework, or linting tools are configured yet. Update this section as tooling is added.
+## Deployment Rules
 
-## For AI Assistants
+IF TRENDING:
+→ Enable Swing Agent
 
-- Read existing files before proposing changes
-- Do not create files unless necessary
-- Match the style and conventions already present in the codebase
-- When in doubt, ask the user for clarification
+IF HIGH VOLATILITY:
+→ Enable Scalping Agent
+
+IF RANGING:
+→ Limited scalping OR no trade
+
+IF LOW VOLATILITY:
+→ Disable all trading
+
+---
+
+## FTMO Constraints
+
+- Daily DD ≤ 5%
+- Max DD ≤ 10%
+- Risk per trade ≤ 1%
+- Max exposure ≤ 3%
+
+---
+
+## Trade Requirements
+
+All trades MUST include:
+
+1. BOS or CHoCH
+2. Liquidity sweep
+3. OB or FVG entry
+4. Sentiment confirmation
+
+---
+
+## Sentiment Layer
+
+Use:
+- Retail positioning (contrarian)
+- Trend alignment
+- Momentum bias
+
+---
+
+## Output Format
+
+- Market Condition
+- Active Agent
+- Trade Decision (ALLOW / BLOCK)
+- Strategy Details (if allowed)
+- FTMO Compliance: PASS/FAIL
+- Reasoning
