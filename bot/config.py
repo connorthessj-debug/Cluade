@@ -58,8 +58,19 @@ INDICES = ["US30", "NAS100", "SPX500", "GER40"]
 
 FUTURES = []  # OANDA doesn't offer futures
 
-# All tradeable instruments
-INSTRUMENTS = FOREX_PAIRS + GOLD + INDICES + FUTURES
+# Crypto — traded on Binance (futures perpetuals preferred)
+CRYPTO = [
+    "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT",
+    "DOGEUSDT", "ADAUSDT", "AVAXUSDT", "DOTUSDT", "LINKUSDT",
+    "MATICUSDT", "LTCUSDT", "ATOMUSDT", "NEARUSDT", "OPUSDT",
+    "ARBUSDT", "SUIUSDT", "APTUSDT", "INJUSDT", "FETUSDT",
+]
+
+# Max crypto pairs to scan per cycle (limits API calls + cycle time)
+MAX_CRYPTO_INSTRUMENTS = 50
+
+# All tradeable instruments (static fallback if auto-discovery is off)
+INSTRUMENTS = FOREX_PAIRS + GOLD + INDICES + FUTURES + CRYPTO
 
 # ─── Timeframes ────────────────────────────────────────────────
 # Scalping agent timeframes

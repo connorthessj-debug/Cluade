@@ -54,6 +54,10 @@ class MultiBridge:
         # Binance
         if BINANCE_API_KEY and BINANCE_API_SECRET:
             raw_binance = BinanceBridge()
+            if PAPER_TRADING:
+                # Paper mode: use real URLs for market data, simulate orders
+                raw_binance.spot_url = "https://api.binance.com"
+                raw_binance.futures_url = "https://fapi.binance.com"
             if raw_binance.connect():
                 if PAPER_TRADING:
                     self.binance = PaperEngine(raw_binance)
@@ -67,10 +71,13 @@ class MultiBridge:
                 self.binance = None
         elif PAPER_TRADING:
             # Paper mode: no keys needed — use public market data only
+            # Force REAL Binance URLs (not testnet) since we only read public data
             raw_binance = BinanceBridge()
-            raw_binance.connected = True  # Skip auth check, public endpoints work without keys
+            raw_binance.spot_url = "https://api.binance.com"
+            raw_binance.futures_url = "https://fapi.binance.com"
+            raw_binance.connected = True
             self.binance = PaperEngine(raw_binance)
-            logger.info("MultiBridge: Binance PAPER MODE (no API keys — public data + simulated orders)")
+            logger.info("MultiBridge: Binance PAPER MODE (public data + simulated orders)")
             any_connected = True
         else:
             logger.info("MultiBridge: Binance not configured, skipping")

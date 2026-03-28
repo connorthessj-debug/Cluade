@@ -183,32 +183,80 @@ class BinanceBridge:
     # ── Instrument Discovery ───────────────────────────────────
 
     def fetch_all_instruments(self) -> list[str]:
-        """Fetch all tradeable instruments from both spot and futures."""
-        symbols = []
+        """
+        Fetch tradeable instruments from Binance.
+        Prioritizes the curated CRYPTO list from config, then fills up to
+        MAX_CRYPTO_INSTRUMENTS with additional futures perpetuals.
+        """
+        from config import CRYPTO, MAX_CRYPTO_INSTRUMENTS
+
+        all_futures = set()
+        all_spot = set()
 
         # Futures — USDT-M perpetuals
+        logger.info("Binance: Fetching futures instruments from %s ...", self.futures_url)
         fdata = self._get(self.futures_url, "/fapi/v1/exchangeInfo")
+        if not fdata:
+            logger.warning("Binance: No response from futures exchangeInfo")
+        elif "symbols" not in fdata:
+            logger.warning("Binance: Unexpected futures response: %s", str(fdata)[:200])
         if fdata and "symbols" in fdata:
             for s in fdata["symbols"]:
                 if s["status"] == "TRADING" and s["contractType"] == "PERPETUAL":
-                    sym = s["symbol"]
-                    self._futures_symbols.add(sym)
-                    symbols.append(sym)
+                    all_futures.add(s["symbol"])
 
-        # Spot — only USDT pairs that aren't already in futures
+        # Spot — only USDT pairs not in futures
+        logger.info("Binance: Fetching spot instruments from %s ...", self.spot_url)
         sdata = self._get(self.spot_url, "/api/v3/exchangeInfo")
         if sdata and "symbols" in sdata:
             for s in sdata["symbols"]:
                 if s["status"] == "TRADING" and s["quoteAsset"] == "USDT":
-                    sym = s["symbol"]
-                    if sym not in self._futures_symbols:
-                        self._spot_symbols.add(sym)
-                        symbols.append(sym)
+                    if s["symbol"] not in all_futures:
+                        all_spot.add(s["symbol"])
 
         logger.info(
-            "Binance: Discovered %d instruments (futures: %d, spot-only: %d)",
+            "Binance: Available — %d futures perpetuals, %d spot-only USDT pairs",
+            len(all_futures), len(all_spot),
+        )
+
+        # Build final list: curated CRYPTO first, then fill with other futures
+        symbols = []
+        seen = set()
+
+        # 1. Add curated pairs that actually exist on the exchange
+        for sym in CRYPTO:
+            if sym in all_futures or sym in all_spot:
+                symbols.append(sym)
+                seen.add(sym)
+
+        # 2. Fill remaining slots with other futures perpetuals
+        remaining = MAX_CRYPTO_INSTRUMENTS - len(symbols)
+        if remaining > 0:
+            for sym in sorted(all_futures):
+                if sym not in seen:
+                    symbols.append(sym)
+                    seen.add(sym)
+                    remaining -= 1
+                    if remaining <= 0:
+                        break
+
+        # Register which are futures vs spot
+        for sym in symbols:
+            if sym in all_futures:
+                self._futures_symbols.add(sym)
+            else:
+                self._spot_symbols.add(sym)
+
+        logger.info(
+            "Binance: Selected %d instruments for trading (futures: %d, spot: %d)",
             len(symbols), len(self._futures_symbols), len(self._spot_symbols),
         )
+
+        # Log the first few so user can verify
+        if symbols:
+            sample = symbols[:10]
+            logger.info("Binance: Sample instruments — %s ...", ", ".join(sample))
+
         return symbols
 
     # ── Account Info ───────────────────────────────────────────
