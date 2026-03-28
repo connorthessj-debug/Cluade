@@ -8,9 +8,9 @@ PAPER_TRADING = True           # True = demo (paper), False = live/FTMO
 DUAL_AGENT_MODE = True         # True = run BOTH agents simultaneously
 
 # ─── MT5 Connection (Demo Account) ───────────────────────────
-MT5_LOGIN = 0                  # Your MT5 demo account number
-MT5_PASSWORD = ""              # Your MT5 demo password
-MT5_SERVER = ""                # Your broker's MT5 demo server name
+MT5_LOGIN = 5048584379                # Your MT5 demo account number
+MT5_PASSWORD = !eFg0vVc              # Your MT5 demo password
+MT5_SERVER = MetaQuotes-Demo                # Your broker's MT5 demo server name
 MT5_PATH = ""                  # Path to terminal64.exe (Linux: via Wine)
 
 # To find your server name: open MT5 → File → Open an Account → your server is listed
