@@ -17,7 +17,7 @@ MT5_PATH = ""                  # Path to terminal64.exe (Linux: via Wine)
 # Example: "MetaQuotes-Demo", "ICMarketsSC-Demo", "FPMarkets-Demo", etc.
 
 # ─── FTMO Risk Limits ─────────────────────────────────────────
-ACCOUNT_BALANCE = 100_000      # Starting balance (update from MT5 on init)
+ACCOUNT_BALANCE = 10_000       # Starting balance (update from MT5 on init)
 MAX_DAILY_LOSS_PCT = 5.0       # Max daily drawdown (FTMO: 5%)
 MAX_TOTAL_DRAWDOWN_PCT = 10.0  # Max overall drawdown (FTMO: 10%)
 MAX_RISK_PER_TRADE_PCT = 1.0   # Max risk per single trade
