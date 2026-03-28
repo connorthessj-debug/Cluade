@@ -7,14 +7,15 @@ All settings for FTMO compliance, instruments, timeframes, and MT5 connection.
 PAPER_TRADING = True           # True = demo (paper), False = live/FTMO
 DUAL_AGENT_MODE = True         # True = run BOTH agents simultaneously
 
-# ─── MT5 Connection (Demo Account) ───────────────────────────
-MT5_LOGIN = 5048584379                # Your MT5 demo account number
-MT5_PASSWORD = !eFg0vVc              # Your MT5 demo password
-MT5_SERVER = MetaQuotes-Demo                # Your broker's MT5 demo server name
-MT5_PATH = ""                  # Path to terminal64.exe (Linux: via Wine)
+# ─── OANDA API Connection (Practice/Demo) ────────────────────
+OANDA_API_KEY = ""             # Your OANDA API token (generate at oanda.com)
+OANDA_ACCOUNT_ID = ""          # Your OANDA account ID (e.g., "101-001-12345678-001")
+OANDA_ENVIRONMENT = "practice" # "practice" for demo, "live" for real money
 
-# To find your server name: open MT5 → File → Open an Account → your server is listed
-# Example: "MetaQuotes-Demo", "ICMarketsSC-Demo", "FPMarkets-Demo", etc.
+# How to get your OANDA credentials:
+# 1. Sign up at https://www.oanda.com (choose "Demo/Practice" account)
+# 2. Log in → My Services → Manage API Access → Generate token
+# 3. Your Account ID is shown on the account summary page
 
 # ─── FTMO Risk Limits ─────────────────────────────────────────
 ACCOUNT_BALANCE = 10_000       # Starting balance (update from MT5 on init)
@@ -41,7 +42,7 @@ GOLD = ["XAUUSD"]
 
 INDICES = ["US30", "NAS100", "SPX500", "GER40"]
 
-FUTURES = ["US30.f", "NAS100.f"]  # Adjust symbols to match your broker
+FUTURES = []  # OANDA doesn't offer futures
 
 # All tradeable instruments
 INSTRUMENTS = FOREX_PAIRS + GOLD + INDICES + FUTURES

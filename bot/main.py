@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 
 from config import OVERSEER_CYCLE_SECONDS, HEARTBEAT_SECONDS, PAPER_TRADING, DUAL_AGENT_MODE
 from utils.logger import setup_logging
-from mt5_bridge import MT5Bridge
+from oanda_bridge import OandaBridge
 from risk_manager import RiskManager
 from overseer import Overseer
 
@@ -80,13 +80,13 @@ def main():
     signal.signal(signal.SIGINT, _handle_signal)
     signal.signal(signal.SIGTERM, _handle_signal)
 
-    # ── Connect to MT5 ────────────────────────────────────────
-    mt5 = MT5Bridge()
-    if not mt5.connect():
-        logger.critical("Cannot connect to MT5. Exiting.")
+    # ── Connect to OANDA ──────────────────────────────────────
+    bridge = OandaBridge()
+    if not bridge.connect():
+        logger.critical("Cannot connect to OANDA. Check API key and account ID. Exiting.")
         sys.exit(1)
 
-    account = mt5.get_account_info()
+    account = bridge.get_account_info()
     if account:
         logger.info(
             "Account: %s | Balance: $%.2f | Equity: $%.2f | Leverage: 1:%d",
@@ -97,8 +97,8 @@ def main():
         logger.info("Account type: %s", account_type)
 
     # ── Initialize components ─────────────────────────────────
-    risk = RiskManager(mt5)
-    overseer = Overseer(mt5, risk)
+    risk = RiskManager(bridge)
+    overseer = Overseer(bridge, risk)
 
     logger.info("Overseer initialized. Entering main loop...")
     logger.info("Cycle interval: %ds | Market check enabled", OVERSEER_CYCLE_SECONDS)
@@ -130,8 +130,8 @@ def main():
                 continue
 
             # Ensure MT5 is still connected
-            if not mt5.ensure_connected():
-                logger.error("MT5 connection lost. Retrying next cycle...")
+            if not bridge.ensure_connected():
+                logger.error("OANDA connection lost. Retrying next cycle...")
                 time.sleep(OVERSEER_CYCLE_SECONDS)
                 continue
 
@@ -170,7 +170,7 @@ def main():
 
     # ── Cleanup ───────────────────────────────────────────────
     logger.info("Shutting down gracefully...")
-    mt5.disconnect()
+    bridge.disconnect()
     logger.info("SMC Bot stopped.")
 
 
