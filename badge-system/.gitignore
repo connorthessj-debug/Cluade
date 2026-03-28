@@ -1,0 +1,29 @@
+# TLS certificates
+server/certs/*.pem
+server/certs/*.key
+server/certs/*.crt
+
+# WireGuard keys
+scripts/wg-keys/
+
+# Face encoding databases
+*.pkl
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Environment files
+.env
+
+# Sample dataset downloads
+pi/sample_data/lfw/
+pi/sample_data/lfw-funneled/
+pi/sample_data/*.tar.gz
+
+# Badge output
+server/output/
+server/badge_queue/
