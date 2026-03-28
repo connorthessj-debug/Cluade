@@ -125,9 +125,15 @@ class BinanceBridge:
     # ── Connection ─────────────────────────────────────────────
 
     def connect(self) -> bool:
-        """Verify Binance API connection."""
+        """Verify Binance API connection. Works without keys for public data only."""
         if not BINANCE_API_KEY or not BINANCE_API_SECRET:
-            logger.error("Binance credentials not set in config.py")
+            # No keys — test public endpoint only (enough for paper trading)
+            data = self._get(self.spot_url, "/api/v3/ping")
+            if data is not None:
+                logger.info("Binance public API reachable (no auth — paper data only)")
+                self.connected = True
+                return True
+            logger.error("Binance public API unreachable")
             return False
 
         # Test spot connection

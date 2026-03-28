@@ -11,10 +11,11 @@ import logging
 from config import (
     OANDA_API_KEY, OANDA_ACCOUNT_ID,
     BINANCE_API_KEY, BINANCE_API_SECRET,
-    AUTO_DISCOVER_INSTRUMENTS,
+    AUTO_DISCOVER_INSTRUMENTS, PAPER_TRADING,
 )
 from oanda_bridge import OandaBridge
 from binance_bridge import BinanceBridge
+from paper_engine import PaperEngine
 
 logger = logging.getLogger(__name__)
 
@@ -52,13 +53,25 @@ class MultiBridge:
 
         # Binance
         if BINANCE_API_KEY and BINANCE_API_SECRET:
-            self.binance = BinanceBridge()
-            if self.binance.connect():
-                logger.info("MultiBridge: Binance connected")
+            raw_binance = BinanceBridge()
+            if raw_binance.connect():
+                if PAPER_TRADING:
+                    self.binance = PaperEngine(raw_binance)
+                    logger.info("MultiBridge: Binance connected (PAPER MODE — orders simulated locally)")
+                else:
+                    self.binance = raw_binance
+                    logger.info("MultiBridge: Binance connected (LIVE)")
                 any_connected = True
             else:
                 logger.warning("MultiBridge: Binance connection failed")
                 self.binance = None
+        elif PAPER_TRADING:
+            # Paper mode: no keys needed — use public market data only
+            raw_binance = BinanceBridge()
+            raw_binance.connected = True  # Skip auth check, public endpoints work without keys
+            self.binance = PaperEngine(raw_binance)
+            logger.info("MultiBridge: Binance PAPER MODE (no API keys — public data + simulated orders)")
+            any_connected = True
         else:
             logger.info("MultiBridge: Binance not configured, skipping")
 
