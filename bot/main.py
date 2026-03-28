@@ -13,9 +13,12 @@ import signal
 import logging
 from datetime import datetime, timezone
 
-from config import OVERSEER_CYCLE_SECONDS, HEARTBEAT_SECONDS, PAPER_TRADING, DUAL_AGENT_MODE
+from config import (
+    OVERSEER_CYCLE_SECONDS, HEARTBEAT_SECONDS, PAPER_TRADING, DUAL_AGENT_MODE,
+    AUTO_DISCOVER_INSTRUMENTS, INSTRUMENTS,
+)
 from utils.logger import setup_logging
-from oanda_bridge import OandaBridge
+from multi_bridge import MultiBridge
 from risk_manager import RiskManager
 from overseer import Overseer
 
@@ -80,25 +83,36 @@ def main():
     signal.signal(signal.SIGINT, _handle_signal)
     signal.signal(signal.SIGTERM, _handle_signal)
 
-    # ── Connect to OANDA ──────────────────────────────────────
-    bridge = OandaBridge()
+    # ── Connect to exchanges ─────────────────────────────────
+    bridge = MultiBridge()
     if not bridge.connect():
-        logger.critical("Cannot connect to OANDA. Check API key and account ID. Exiting.")
+        logger.critical("Cannot connect to any exchange. Check credentials. Exiting.")
         sys.exit(1)
 
     account = bridge.get_account_info()
     if account:
         logger.info(
-            "Account: %s | Balance: $%.2f | Equity: $%.2f | Leverage: 1:%d",
-            account["login"], account["balance"],
-            account["equity"], account["leverage"],
+            "Account: %s | Balance: $%.2f | Equity: $%.2f",
+            account["login"], account["balance"], account["equity"],
         )
         account_type = "DEMO" if PAPER_TRADING else "LIVE"
         logger.info("Account type: %s", account_type)
 
+    # ── Discover instruments ──────────────────────────────────
+    if AUTO_DISCOVER_INSTRUMENTS:
+        instruments = bridge.fetch_all_instruments()
+        if instruments:
+            logger.info("Auto-discovered %d instruments across all exchanges", len(instruments))
+        else:
+            logger.warning("Auto-discovery returned 0 instruments, falling back to config list")
+            instruments = INSTRUMENTS
+    else:
+        instruments = INSTRUMENTS
+        logger.info("Using %d instruments from config", len(instruments))
+
     # ── Initialize components ─────────────────────────────────
     risk = RiskManager(bridge)
-    overseer = Overseer(bridge, risk)
+    overseer = Overseer(bridge, risk, instruments)
 
     logger.info("Overseer initialized. Entering main loop...")
     logger.info("Cycle interval: %ds | Market check enabled", OVERSEER_CYCLE_SECONDS)

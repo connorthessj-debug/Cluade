@@ -101,53 +101,43 @@ class OandaBridge:
 
     # ── Symbol Conversion ──────────────────────────────────────
 
-    @staticmethod
-    def _to_oanda(symbol: str) -> str:
-        """Convert standard symbol to OANDA format: EURUSD → EUR_USD."""
-        # Forex pairs (6 chars)
+    # Bidirectional mapping for non-obvious symbols
+    _OANDA_MAP = {
+        "XAUUSD": "XAU_USD", "XAGUSD": "XAG_USD",
+        "XPTUSD": "XPT_USD", "XPDUSD": "XPD_USD",
+        "XCUUSD": "XCU_USD",
+        "US30": "US30_USD", "NAS100": "NAS100_USD", "SPX500": "SPX500_USD",
+        "GER40": "DE30_EUR", "UK100": "UK100_GBP", "JP225": "JP225_USD",
+        "FRA40": "FR40_EUR", "AUS200": "AU200_AUD", "HK33": "HK33_HKD",
+        "CHINAH": "CN50_USD", "SING30": "SG30_SGD", "TWIX": "TWIX_USD",
+        "NATGAS": "NATGAS_USD", "WTICO": "WTICO_USD", "BRENT": "BCO_USD",
+        "WHEAT": "WHEAT_USD", "CORN": "CORN_USD", "SUGAR": "SUGAR_USD",
+        "SOYBN": "SOYBN_USD",
+    }
+    _OANDA_REV = {v: k for k, v in _OANDA_MAP.items()}
+
+    @classmethod
+    def _to_oanda(cls, symbol: str) -> str:
+        """Convert standard symbol to OANDA format."""
+        if symbol in cls._OANDA_MAP:
+            return cls._OANDA_MAP[symbol]
+        # Forex pairs (6 chars, all alpha)
         if len(symbol) == 6 and symbol.isalpha():
             return f"{symbol[:3]}_{symbol[3:]}"
-        # Gold
-        if symbol == "XAUUSD":
-            return "XAU_USD"
-        if symbol == "XAGUSD":
-            return "XAG_USD"
-        # Indices — OANDA uses specific names
-        idx_map = {
-            "US30": "US30_USD",
-            "NAS100": "NAS100_USD",
-            "SPX500": "SPX500_USD",
-            "GER40": "DE30_EUR",
-            "UK100": "UK100_GBP",
-            "JP225": "JP225_USD",
-        }
-        if symbol in idx_map:
-            return idx_map[symbol]
-        # Return as-is if already OANDA format or unknown
         return symbol
 
-    @staticmethod
-    def _from_oanda(oanda_symbol: str) -> str:
-        """Convert OANDA format back to standard: EUR_USD → EURUSD."""
+    @classmethod
+    def _from_oanda(cls, oanda_symbol: str) -> str:
+        """Convert OANDA format back to standard."""
+        if oanda_symbol in cls._OANDA_REV:
+            return cls._OANDA_REV[oanda_symbol]
         if "_" in oanda_symbol:
             parts = oanda_symbol.split("_")
-            # Forex: EUR_USD → EURUSD
             if len(parts) == 2 and len(parts[0]) == 3 and len(parts[1]) == 3:
                 combined = parts[0] + parts[1]
                 if combined.isalpha():
                     return combined
-        # Reverse index map
-        rev_map = {
-            "XAU_USD": "XAUUSD",
-            "XAG_USD": "XAGUSD",
-            "US30_USD": "US30",
-            "NAS100_USD": "NAS100",
-            "SPX500_USD": "SPX500",
-            "DE30_EUR": "GER40",
-            "UK100_GBP": "UK100",
-            "JP225_USD": "JP225",
-        }
-        return rev_map.get(oanda_symbol, oanda_symbol)
+        return oanda_symbol
 
     # ── Connection ─────────────────────────────────────────────
 
@@ -189,6 +179,31 @@ class OandaBridge:
 
         logger.error("Failed to connect to OANDA after 3 attempts")
         return False
+
+    # ── Instrument Discovery ───────────────────────────────────
+
+    def fetch_all_instruments(self) -> list[str]:
+        """Fetch all tradeable instruments from OANDA and return internal symbol names."""
+        if not self.ensure_connected():
+            return []
+
+        data = self._get(f"/v3/accounts/{self.account_id}/instruments")
+        if not data or "instruments" not in data:
+            logger.warning("Could not fetch OANDA instruments")
+            return []
+
+        symbols = []
+        for inst in data["instruments"]:
+            oanda_name = inst["name"]
+            internal = self._from_oanda(oanda_name)
+            symbols.append(internal)
+            # Cache the mapping for later
+            if internal not in self._OANDA_MAP and oanda_name != internal:
+                self._OANDA_MAP[internal] = oanda_name
+                self._OANDA_REV[oanda_name] = internal
+
+        logger.info("OANDA: Discovered %d tradeable instruments", len(symbols))
+        return symbols
 
     # ── Account Info ───────────────────────────────────────────
 

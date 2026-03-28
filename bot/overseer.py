@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 import pandas as pd
 
 from config import (
-    INSTRUMENTS, DUAL_AGENT_MODE, PAPER_TRADING,
+    DUAL_AGENT_MODE, PAPER_TRADING,
     ADX_PERIOD, ADX_TRENDING_THRESHOLD, ADX_WEAK_THRESHOLD,
     ATR_PERIOD, ATR_HIGH_VOL_MULTIPLIER, ATR_LOW_VOL_MULTIPLIER,
     REGIME_TF, REGIME_HTF, REGIME_LOOKBACK,
@@ -37,9 +37,10 @@ class Overseer:
     trading agent, enforces FTMO rules, and gates every trade.
     """
 
-    def __init__(self, mt5_bridge, risk_manager):
+    def __init__(self, mt5_bridge, risk_manager, instruments=None):
         self.mt5 = mt5_bridge
         self.risk = risk_manager
+        self.instruments = instruments or []
         self.scalper = ScalpingAgent(mt5_bridge, risk_manager)
         self.swinger = SwingAgent(mt5_bridge, risk_manager)
         self.active_agent = None
@@ -355,7 +356,7 @@ class Overseer:
 
         for agent_name in agent_choices:
             agent = agents_map[agent_name]
-            proposals = agent.scan_instruments(INSTRUMENTS)
+            proposals = agent.scan_instruments(self.instruments)
             for p in proposals:
                 p["_agent_name"] = agent_name
             all_proposals.extend(proposals)

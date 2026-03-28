@@ -12,10 +12,24 @@ OANDA_API_KEY = ""             # Your OANDA API token (generate at oanda.com)
 OANDA_ACCOUNT_ID = ""          # Your OANDA account ID (e.g., "101-001-12345678-001")
 OANDA_ENVIRONMENT = "practice" # "practice" for demo, "live" for real money
 
+# ─── Binance API Connection ──────────────────────────────────
+BINANCE_API_KEY = ""           # Your Binance API key
+BINANCE_API_SECRET = ""        # Your Binance API secret
+BINANCE_TESTNET = True         # True = testnet, False = real trading
+
+# ─── Instrument Discovery ────────────────────────────────────
+AUTO_DISCOVER_INSTRUMENTS = True  # True = fetch all from exchange APIs at startup
+
 # How to get your OANDA credentials:
 # 1. Sign up at https://www.oanda.com (choose "Demo/Practice" account)
 # 2. Log in → My Services → Manage API Access → Generate token
 # 3. Your Account ID is shown on the account summary page
+#
+# How to get your Binance credentials:
+# 1. Sign up at https://www.binance.com
+# 2. Go to API Management → Create API
+# 3. Enable "Spot & Margin Trading" and "Futures" permissions
+# 4. For testnet: https://testnet.binancefuture.com (separate API keys)
 
 # ─── FTMO Risk Limits ─────────────────────────────────────────
 ACCOUNT_BALANCE = 10_000       # Starting balance (update from MT5 on init)
