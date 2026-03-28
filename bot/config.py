@@ -3,25 +3,34 @@ SMC Dual-Agent Trading Bot — Configuration
 All settings for FTMO compliance, instruments, timeframes, and MT5 connection.
 """
 
-# ─── MT5 Connection ────────────────────────────────────────────
-MT5_LOGIN = 0           # Your MT5 account number
-MT5_PASSWORD = ""       # Your MT5 password
-MT5_SERVER = ""         # Your broker/FTMO server name
-MT5_PATH = ""           # Path to terminal64.exe (Linux: via Wine)
+# ─── Mode ──────────────────────────────────────────────────────
+PAPER_TRADING = True           # True = OANDA demo (paper), False = live/FTMO
+DUAL_AGENT_MODE = True         # True = run BOTH agents simultaneously
+
+# ─── MT5 Connection (OANDA Demo) ──────────────────────────────
+MT5_LOGIN = 0                  # Your OANDA MT5 demo account number
+MT5_PASSWORD = ""              # Your OANDA MT5 demo password
+MT5_SERVER = "OANDA-OandaPractice-1"  # OANDA practice server
+MT5_PATH = ""                  # Path to terminal64.exe (Linux: via Wine)
+
+# Common OANDA MT5 servers:
+#   Demo:  "OANDA-OandaPractice-1" or "OANDA-Demo-1"
+#   Live:  "OANDA-OandaLive-1" (do NOT use in paper mode)
 
 # ─── FTMO Risk Limits ─────────────────────────────────────────
 ACCOUNT_BALANCE = 100_000      # Starting balance (update from MT5 on init)
 MAX_DAILY_LOSS_PCT = 5.0       # Max daily drawdown (FTMO: 5%)
 MAX_TOTAL_DRAWDOWN_PCT = 10.0  # Max overall drawdown (FTMO: 10%)
 MAX_RISK_PER_TRADE_PCT = 1.0   # Max risk per single trade
-MAX_EXPOSURE_PCT = 3.0         # Max total open exposure
-MAX_CONCURRENT_TRADES = 3      # Max simultaneous open positions
+MAX_EXPOSURE_PCT = 5.0         # Max total open exposure (higher for dual-agent)
+MAX_CONCURRENT_TRADES = 6      # Max simultaneous positions (3 per agent)
 
 # ─── Safety Buffers (stay away from FTMO limits) ──────────────
 DAILY_LOSS_BUFFER_PCT = 0.5    # Stop trading at 4.5% daily loss
 TOTAL_DD_BUFFER_PCT = 1.0      # Stop trading at 9% total drawdown
 
-# ─── Instruments ───────────────────────────────────────────────
+# ─── Instruments (OANDA MT5 symbol format) ─────────────────────
+# OANDA uses standard symbols on MT5 but verify in your Market Watch
 FOREX_PAIRS = [
     "EURUSD", "GBPUSD", "USDJPY", "USDCHF",
     "AUDUSD", "NZDUSD", "USDCAD",
@@ -32,7 +41,7 @@ GOLD = ["XAUUSD"]
 
 INDICES = ["US30", "NAS100", "SPX500", "GER40"]
 
-FUTURES = ["US30.f", "NAS100.f"]  # Adjust symbols to your broker
+FUTURES = []  # OANDA demo doesn't offer futures — leave empty
 
 # All tradeable instruments
 INSTRUMENTS = FOREX_PAIRS + GOLD + INDICES + FUTURES

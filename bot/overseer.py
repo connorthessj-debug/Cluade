@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 import pandas as pd
 
 from config import (
-    INSTRUMENTS,
+    INSTRUMENTS, DUAL_AGENT_MODE, PAPER_TRADING,
     ADX_PERIOD, ADX_TRENDING_THRESHOLD, ADX_WEAK_THRESHOLD,
     ATR_PERIOD, ATR_HIGH_VOL_MULTIPLIER, ATR_LOW_VOL_MULTIPLIER,
     REGIME_TF, REGIME_HTF, REGIME_LOOKBACK,
@@ -129,27 +129,35 @@ class Overseer:
 
     # ── Agent Selection ────────────────────────────────────────
 
-    def select_agent(self, regime: str) -> str:
+    def select_agents(self, regime: str) -> list[str]:
         """
-        Decide which agent to activate based on regime.
+        Decide which agent(s) to activate based on regime.
 
-        TRENDING       → Swing Agent
-        HIGH_VOLATILITY → Scalping Agent
+        In DUAL_AGENT_MODE: both agents run simultaneously (paper training).
+        In single-agent mode: one agent selected by regime.
+
+        TRENDING       → Swing (+ Scalping in dual mode)
+        HIGH_VOLATILITY → Scalping (+ Swing in dual mode)
         RANGING        → Limited scalping OR none
         LOW_VOLATILITY → No trading
         """
+        if DUAL_AGENT_MODE:
+            # Both agents always active unless LOW_VOLATILITY
+            if regime == "LOW_VOLATILITY":
+                return []
+            return ["scalping", "swing"]
+
+        # Single-agent mode (production/FTMO)
         if regime == "TRENDING":
-            return "swing"
+            return ["swing"]
         elif regime == "HIGH_VOLATILITY":
-            return "scalping"
+            return ["scalping"]
         elif regime == "RANGING":
-            # Only allow scalping during active sessions
             if self._in_active_session():
-                return "scalping"
-            return "none"
+                return ["scalping"]
+            return []
         else:
-            # LOW_VOLATILITY or UNKNOWN
-            return "none"
+            return []
 
     def _in_active_session(self) -> bool:
         """Check if we're in an active trading session (London/NY overlap)."""
@@ -292,17 +300,20 @@ class Overseer:
     def run_cycle(self) -> dict:
         """
         Execute one complete Overseer cycle.
+        In dual-agent mode, both agents run and proposals are deduplicated.
 
         Returns a summary dict with all decisions and reasoning.
         """
         self.cycle_count += 1
         cycle_start = datetime.now(timezone.utc)
+        mode_label = "PAPER/DUAL" if (PAPER_TRADING and DUAL_AGENT_MODE) else "LIVE"
 
         summary = {
             "cycle": self.cycle_count,
             "timestamp": cycle_start.isoformat(),
+            "mode": mode_label,
             "market_condition": "UNKNOWN",
-            "active_agent": "none",
+            "active_agents": [],
             "trade_decision": "BLOCK",
             "trades_executed": [],
             "reasoning": "",
@@ -317,7 +328,6 @@ class Overseer:
             summary["reasoning"] = f"Trading blocked: {risk_status['reason']}"
             summary["trade_decision"] = "BLOCK"
             logger.warning("OVERSEER CYCLE %d — BLOCKED: %s", self.cycle_count, risk_status["reason"])
-            # Still manage open trades
             self.manage_open_trades()
             return summary
 
@@ -325,43 +335,58 @@ class Overseer:
         self.regime = self.classify_regime()
         summary["market_condition"] = self.regime
 
-        # ── Step 3: Select agent ───────────────────────────────
-        agent_choice = self.select_agent(self.regime)
-        summary["active_agent"] = agent_choice
+        # ── Step 3: Select agent(s) ────────────────────────────
+        agent_choices = self.select_agents(self.regime)
+        summary["active_agents"] = agent_choices
 
-        if agent_choice == "none":
+        if not agent_choices:
             summary["trade_decision"] = "BLOCK"
             summary["reasoning"] = f"No trading in {self.regime} conditions"
             logger.info(
-                "OVERSEER CYCLE %d — %s | Agent: NONE | No trade",
+                "OVERSEER CYCLE %d — %s | Agents: NONE | No trade",
                 self.cycle_count, self.regime,
             )
             self.manage_open_trades()
             return summary
 
-        # ── Step 4: Run selected agent ─────────────────────────
-        agent = self.scalper if agent_choice == "scalping" else self.swinger
-        self.active_agent = agent
+        # ── Step 4: Run all active agents ──────────────────────
+        all_proposals = []
+        agents_map = {"scalping": self.scalper, "swing": self.swinger}
 
-        proposals = agent.scan_instruments(INSTRUMENTS)
-
-        if not proposals:
-            summary["trade_decision"] = "BLOCK"
-            summary["reasoning"] = f"{agent_choice.title()} agent found no setups"
+        for agent_name in agent_choices:
+            agent = agents_map[agent_name]
+            proposals = agent.scan_instruments(INSTRUMENTS)
+            for p in proposals:
+                p["_agent_name"] = agent_name
+            all_proposals.extend(proposals)
             logger.info(
-                "OVERSEER CYCLE %d — %s | Agent: %s | No setups found",
-                self.cycle_count, self.regime, agent_choice.upper(),
+                "CYCLE %d — %s agent found %d proposal(s)",
+                self.cycle_count, agent_name.upper(), len(proposals),
+            )
+
+        if not all_proposals:
+            summary["trade_decision"] = "BLOCK"
+            agents_str = " + ".join(a.upper() for a in agent_choices)
+            summary["reasoning"] = f"{agents_str} found no setups"
+            logger.info(
+                "OVERSEER CYCLE %d — %s | Agents: %s | No setups",
+                self.cycle_count, self.regime, agents_str,
             )
             self.manage_open_trades()
             return summary
 
+        # ── Step 4b: Deduplicate — if both agents signal the same
+        # symbol in the same direction, keep the better R:R one.
+        # If they conflict (buy vs sell on same symbol), block both.
+        deduped = self._deduplicate_proposals(all_proposals)
+
         # ── Step 5: Gate each proposal ─────────────────────────
-        for proposal in proposals:
+        for proposal in deduped:
             decision = self._validate_proposal(proposal)
+            agent_name = proposal.get("_agent_name", proposal.get("agent", "unknown"))
 
             if decision["action"] == "ALLOW":
-                # Execute the trade
-                comment = f"SMC_{agent_choice.upper()}"
+                comment = f"SMC_{agent_name.upper()}"
                 result = self.mt5.place_order(
                     symbol=proposal["symbol"],
                     direction=proposal["direction"],
@@ -381,10 +406,12 @@ class Overseer:
                         "tp": proposal["tp"],
                         "rr": proposal["risk_reward"],
                         "ticket": result["ticket"],
+                        "agent": agent_name,
                     })
                     logger.info(
-                        "OVERSEER CYCLE %d — TRADE EXECUTED: %s %s %.2f lots @ %.5f | R:R=%.2f",
-                        self.cycle_count, proposal["direction"].upper(),
+                        "OVERSEER CYCLE %d — TRADE EXECUTED [%s]: %s %s %.2f lots @ %.5f | R:R=%.2f",
+                        self.cycle_count, agent_name.upper(),
+                        proposal["direction"].upper(),
                         proposal["symbol"], proposal["lot_size"],
                         result["price"], proposal["risk_reward"],
                     )
@@ -392,19 +419,24 @@ class Overseer:
                     # Re-check risk after each trade
                     can_continue, _ = self.risk.can_trade()
                     if not can_continue:
+                        logger.info("Risk limit reached — stopping further entries this cycle")
                         break
             else:
                 logger.info(
-                    "OVERSEER CYCLE %d — BLOCKED %s %s: %s",
-                    self.cycle_count, proposal["direction"].upper(),
+                    "OVERSEER CYCLE %d — BLOCKED [%s] %s %s: %s",
+                    self.cycle_count, agent_name.upper(),
+                    proposal["direction"].upper(),
                     proposal["symbol"], decision["reason"],
                 )
 
         # Set final summary
         if summary["trades_executed"]:
             summary["trade_decision"] = "ALLOW"
+            scalp_count = sum(1 for t in summary["trades_executed"] if t["agent"] == "scalping")
+            swing_count = sum(1 for t in summary["trades_executed"] if t["agent"] == "swing")
             summary["reasoning"] = (
-                f"Executed {len(summary['trades_executed'])} trade(s) via {agent_choice} agent"
+                f"Executed {len(summary['trades_executed'])} trade(s) — "
+                f"Scalp: {scalp_count}, Swing: {swing_count}"
             )
         else:
             summary["trade_decision"] = "BLOCK"
@@ -418,31 +450,73 @@ class Overseer:
 
         return summary
 
+    def _deduplicate_proposals(self, proposals: list[dict]) -> list[dict]:
+        """
+        Deduplicate proposals from both agents:
+        - Same symbol, same direction: keep the one with better R:R
+        - Same symbol, opposite direction: block both (conflicting signals)
+        """
+        by_symbol = {}
+        for p in proposals:
+            sym = p["symbol"]
+            if sym not in by_symbol:
+                by_symbol[sym] = []
+            by_symbol[sym].append(p)
+
+        result = []
+        for sym, sym_proposals in by_symbol.items():
+            if len(sym_proposals) == 1:
+                result.append(sym_proposals[0])
+                continue
+
+            directions = set(p["direction"] for p in sym_proposals)
+            if len(directions) > 1:
+                # Conflicting signals — block both
+                logger.info(
+                    "DEDUP: %s has conflicting signals (buy + sell) — blocking both",
+                    sym,
+                )
+                continue
+
+            # Same direction — keep best R:R
+            best = max(sym_proposals, key=lambda p: p.get("risk_reward", 0))
+            logger.info(
+                "DEDUP: %s has %d signals same direction — keeping %s (R:R=%.2f)",
+                sym, len(sym_proposals), best.get("_agent_name", "?"),
+                best.get("risk_reward", 0),
+            )
+            result.append(best)
+
+        return result
+
     def _log_cycle_output(self, summary: dict):
         """Log the cycle output in the specified format."""
         ftmo = summary["ftmo_status"]
+        agents = summary.get("active_agents", [])
+        agents_str = " + ".join(a.upper() for a in agents) if agents else "NONE"
+
         logger.info(
             "\n"
-            "╔══════════════════════════════════════════════════╗\n"
-            "║          OVERSEER CYCLE #%d                      ║\n"
-            "╠══════════════════════════════════════════════════╣\n"
-            "║ Market Condition : %-28s ║\n"
-            "║ Active Agent     : %-28s ║\n"
-            "║ Trade Decision   : %-28s ║\n"
-            "║ Trades Executed  : %-28d ║\n"
-            "║ Reasoning        : %-28s ║\n"
-            "╠══════════════════════════════════════════════════╣\n"
-            "║ FTMO Status                                      ║\n"
-            "║ Daily DD: %.2f%% / %.1f%%  |  Total DD: %.2f%% / %.1f%% ║\n"
-            "║ Open Positions: %d  |  Equity: $%.2f             ║\n"
-            "║ FTMO Compliance: %-30s ║\n"
-            "╚══════════════════════════════════════════════════╝",
-            summary["cycle"],
+            "╔══════════════════════════════════════════════════════╗\n"
+            "║  OVERSEER CYCLE #%-6d           [%-12s]   ║\n"
+            "╠══════════════════════════════════════════════════════╣\n"
+            "║ Market Condition : %-32s ║\n"
+            "║ Active Agents    : %-32s ║\n"
+            "║ Trade Decision   : %-32s ║\n"
+            "║ Trades Executed  : %-32d ║\n"
+            "║ Reasoning        : %-32s ║\n"
+            "╠══════════════════════════════════════════════════════╣\n"
+            "║ FTMO Status                                          ║\n"
+            "║  Daily DD : %5.2f%% / %4.1f%%  |  Total DD : %5.2f%% / %4.1f%%  ║\n"
+            "║  Open Pos : %-4d            |  Equity   : $%-12.2f ║\n"
+            "║  FTMO Compliance : %-34s ║\n"
+            "╚══════════════════════════════════════════════════════╝",
+            summary["cycle"], summary.get("mode", "LIVE"),
             summary["market_condition"],
-            summary["active_agent"].upper(),
+            agents_str,
             summary["trade_decision"],
             len(summary["trades_executed"]),
-            summary["reasoning"][:28],
+            summary["reasoning"][:32],
             ftmo.get("daily_dd_pct", 0), ftmo.get("daily_limit_pct", 4.5),
             ftmo.get("total_dd_pct", 0), ftmo.get("total_limit_pct", 9.0),
             ftmo.get("open_positions", 0), ftmo.get("equity", 0),

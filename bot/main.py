@@ -13,7 +13,7 @@ import signal
 import logging
 from datetime import datetime, timezone
 
-from config import OVERSEER_CYCLE_SECONDS, HEARTBEAT_SECONDS
+from config import OVERSEER_CYCLE_SECONDS, HEARTBEAT_SECONDS, PAPER_TRADING, DUAL_AGENT_MODE
 from utils.logger import setup_logging
 from mt5_bridge import MT5Bridge
 from risk_manager import RiskManager
@@ -58,9 +58,23 @@ def is_market_open() -> bool:
 
 def main():
     setup_logging()
+
+    mode = "PAPER TRADING (OANDA Demo)" if PAPER_TRADING else "LIVE TRADING"
+    agent_mode = "DUAL-AGENT (Scalping + Swing)" if DUAL_AGENT_MODE else "SINGLE-AGENT"
+
     logger.info("=" * 60)
     logger.info("SMC DUAL-AGENT TRADING BOT — STARTING")
     logger.info("=" * 60)
+    logger.info("  Mode        : %s", mode)
+    logger.info("  Agent Mode  : %s", agent_mode)
+    logger.info("  FTMO Rules  : ENFORCED (even in paper mode)")
+    logger.info("=" * 60)
+
+    if PAPER_TRADING:
+        logger.info(
+            "*** PAPER MODE: Trades execute on OANDA demo account. ***\n"
+            "*** No real money at risk. Both agents learning simultaneously. ***"
+        )
 
     # Register signal handlers for graceful shutdown
     signal.signal(signal.SIGINT, _handle_signal)
@@ -79,6 +93,8 @@ def main():
             account["login"], account["balance"],
             account["equity"], account["leverage"],
         )
+        account_type = "DEMO" if PAPER_TRADING else "LIVE"
+        logger.info("Account type: %s", account_type)
 
     # ── Initialize components ─────────────────────────────────
     risk = RiskManager(mt5)
