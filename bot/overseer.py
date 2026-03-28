@@ -27,6 +27,7 @@ from config import (
 )
 from agents.scalping import ScalpingAgent
 from agents.swing import SwingAgent
+import trade_logger
 
 logger = logging.getLogger(__name__)
 
@@ -242,6 +243,8 @@ class Overseer:
         # Emergency: approaching FTMO limits
         if risk_status["daily_dd_pct"] >= risk_status["daily_limit_pct"] * 0.9:
             logger.warning("Approaching daily DD limit! Closing all positions.")
+            for pos in positions:
+                trade_logger.log_close(pos, pnl=pos.get("profit", 0), reason="FTMO daily DD limit")
             self.risk.emergency_close_all("Approaching daily DD limit")
             return
 
@@ -268,6 +271,9 @@ class Overseer:
                     "Max hold time exceeded for %s ticket %d — closing",
                     symbol, pos["ticket"],
                 )
+                hold_str = f"{hold_time.total_seconds() / 60:.0f}m"
+                trade_logger.log_close(pos, pnl=pos.get("profit", 0),
+                                       hold_time=hold_str, reason="Max hold time")
                 self.mt5.close_position(pos["ticket"])
                 continue
 
@@ -398,17 +404,26 @@ class Overseer:
                 )
 
                 if result:
-                    summary["trades_executed"].append({
+                    trade_record = {
                         "symbol": proposal["symbol"],
                         "direction": proposal["direction"],
                         "lot_size": proposal["lot_size"],
                         "entry": result["price"],
+                        "price": result["price"],
                         "sl": proposal["sl"],
                         "tp": proposal["tp"],
                         "rr": proposal["risk_reward"],
                         "ticket": result["ticket"],
                         "agent": agent_name,
-                    })
+                    }
+                    summary["trades_executed"].append(trade_record)
+
+                    # Clean trade log
+                    exchange = ""
+                    if hasattr(self.mt5, '_symbol_exchange'):
+                        exchange = self.mt5._symbol_exchange.get(proposal["symbol"], "")
+                    trade_logger.log_open(trade_record, agent=agent_name, exchange=exchange)
+
                     logger.info(
                         "OVERSEER CYCLE %d — TRADE EXECUTED [%s]: %s %s %.2f lots @ %.5f | R:R=%.2f",
                         self.cycle_count, agent_name.upper(),
@@ -423,6 +438,7 @@ class Overseer:
                         logger.info("Risk limit reached — stopping further entries this cycle")
                         break
             else:
+                trade_logger.log_block(proposal, agent=agent_name, reason=decision["reason"])
                 logger.info(
                     "OVERSEER CYCLE %d — BLOCKED [%s] %s %s: %s",
                     self.cycle_count, agent_name.upper(),
