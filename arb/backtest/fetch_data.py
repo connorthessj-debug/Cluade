@@ -15,9 +15,8 @@ import os
 import sys
 import time
 import json
-import hmac
-import hashlib
 import csv
+import secrets
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -25,6 +24,13 @@ try:
     import requests
 except ImportError:
     print("ERROR: 'requests' not installed. Run: pip install -r requirements.txt")
+    sys.exit(1)
+
+try:
+    import jwt
+    from cryptography.hazmat.primitives import serialization
+except ImportError:
+    print("ERROR: 'PyJWT' and 'cryptography' required. Run: pip install PyJWT cryptography")
     sys.exit(1)
 
 # ---------------------------------------------------------------------------
@@ -39,12 +45,12 @@ PRODUCT_ID = "USDC-USD"
 
 GRANULARITY_SECONDS = {
     "ONE_MINUTE": 60,
-    "FIVE_MINUTES": 300,
-    "FIFTEEN_MINUTES": 900,
-    "THIRTY_MINUTES": 1800,
+    "FIVE_MINUTE": 300,
+    "FIFTEEN_MINUTE": 900,
+    "THIRTY_MINUTE": 1800,
     "ONE_HOUR": 3600,
-    "TWO_HOURS": 7200,
-    "SIX_HOURS": 21600,
+    "TWO_HOUR": 7200,
+    "SIX_HOUR": 21600,
     "ONE_DAY": 86400,
 }
 
@@ -73,35 +79,54 @@ def get_coinbase_credentials():
     api_key = os.environ.get("COINBASE_API_KEY")
     api_secret = os.environ.get("COINBASE_API_SECRET")
     if api_key and api_secret:
+        # Unescape literal \n to actual newlines in the PEM key
+        api_secret = api_secret.replace("\\n", "\n")
         return api_key, api_secret
     return None, None
 
 
-def sign_request(api_secret, timestamp, method, path, body=""):
-    """Generate HMAC-SHA256 signature for Coinbase API."""
-    message = f"{timestamp}{method.upper()}{path}{body}"
-    signature = hmac.new(
-        api_secret.encode("utf-8"),
-        message.encode("utf-8"),
-        hashlib.sha256,
-    ).hexdigest()
-    return signature
+def build_jwt(api_key, api_secret, method, path):
+    """
+    Build a JWT token for Coinbase Advanced Trade API (CDP API key auth).
+    See: https://docs.cdp.coinbase.com/advanced-trade/docs/rest-api-auth
+    """
+    uri = f"{method.upper()} {COINBASE_BASE_URL.replace('https://', '')}{path}"
+
+    now = int(time.time())
+    payload = {
+        "sub": api_key,
+        "iss": "cdp",
+        "aud": ["cdp_service"],
+        "nbf": now,
+        "exp": now + 120,  # 2 minute expiry
+        "uris": [uri],
+    }
+
+    # Load the EC private key
+    private_key = serialization.load_pem_private_key(
+        api_secret.encode("utf-8"), password=None
+    )
+
+    token = jwt.encode(
+        payload,
+        private_key,
+        algorithm="ES256",
+        headers={"kid": api_key, "nonce": secrets.token_hex(16), "typ": "JWT"},
+    )
+    return token
 
 
 def coinbase_get(path, params=None, api_key=None, api_secret=None):
-    """Authenticated GET request to Coinbase API."""
-    timestamp = str(int(time.time()))
+    """Authenticated GET request to Coinbase API using JWT."""
     query = ""
     if params:
         query = "?" + "&".join(f"{k}={v}" for k, v in params.items())
     full_path = path + query
 
-    signature = sign_request(api_secret, timestamp, "GET", full_path)
+    token = build_jwt(api_key, api_secret, "GET", path)
 
     headers = {
-        "CB-ACCESS-KEY": api_key,
-        "CB-ACCESS-SIGN": signature,
-        "CB-ACCESS-TIMESTAMP": timestamp,
+        "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
     }
 
@@ -168,7 +193,12 @@ def fetch_coinbase_candles(days=30, granularity="ONE_MINUTE"):
                 print(f"  Auth error ({e.response.status_code}): Check your API key/secret")
                 return None
             else:
-                print(f"  HTTP error: {e}")
+                body = ""
+                try:
+                    body = e.response.text
+                except Exception:
+                    pass
+                print(f"\n  HTTP {e.response.status_code}: {body}")
                 return None
         except requests.exceptions.RequestException as e:
             print(f"  Network error: {e}")
