@@ -1,0 +1,16 @@
+# Environment / secrets
+arb/.env
+.env
+
+# Backtest data & results (large files, regenerated locally)
+arb/backtest/data/
+
+# Bot runtime data
+arb/bot/trades.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
