@@ -1,0 +1,15 @@
+[Unit]
+Description=RENDER Trading Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/user/Cluade/arb/bot
+ExecStart=/usr/bin/python3 /home/user/Cluade/arb/bot/server.py
+Restart=always
+RestartSec=10
+Environment=BOT_PORT=8766
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,285 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+    --bg: #0a0e17;
+    --card: #111827;
+    --card-border: #1f2937;
+    --text: #f9fafb;
+    --text-dim: #9ca3af;
+    --green: #10b981;
+    --green-bg: rgba(16, 185, 129, 0.1);
+    --red: #ef4444;
+    --red-bg: rgba(239, 68, 68, 0.1);
+    --blue: #3b82f6;
+    --blue-bg: rgba(59, 130, 246, 0.1);
+    --yellow: #f59e0b;
+    --radius: 12px;
+}
+
+body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Header */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 0 8px;
+}
+header h1 {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+.header-left { display: flex; align-items: center; gap: 10px; }
+.badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 20px;
+    background: var(--red-bg);
+    color: var(--red);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.badge.running { background: var(--green-bg); color: var(--green); }
+.pnl {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    font-weight: 600;
+}
+.pnl.positive { color: var(--green); }
+.pnl.negative { color: var(--red); }
+
+/* Price Panel */
+.price-panel {
+    text-align: center;
+    padding: 20px 0 12px;
+}
+.big-price {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 42px;
+    font-weight: 800;
+    letter-spacing: -1px;
+}
+.price-sub {
+    font-size: 14px;
+    color: var(--text-dim);
+    margin-top: 4px;
+}
+.price-sub .dip { color: var(--red); font-weight: 600; }
+.price-sub .waiting { color: var(--text-dim); }
+.price-meta {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin-top: 12px;
+    font-size: 12px;
+}
+.price-meta label {
+    display: block;
+    color: var(--text-dim);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.price-meta span {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+}
+
+/* Cards */
+section {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 12px;
+}
+section h3 {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+}
+header, .price-panel { background: none; border: none; padding-left: 0; padding-right: 0; }
+
+/* Position Panel */
+.position-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.position-grid label {
+    display: block;
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.position-grid span {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    font-weight: 500;
+}
+.green { color: var(--green); }
+.red { color: var(--red); }
+.position-pnl {
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px;
+    font-weight: 700;
+    padding: 8px 0;
+    margin-bottom: 12px;
+}
+
+/* Balance */
+.balance-panel {
+    display: flex;
+    justify-content: space-around;
+}
+.balance-panel label {
+    display: block;
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+}
+.balance-panel span {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+/* Buttons */
+.controls {
+    display: flex;
+    gap: 12px;
+    background: none;
+    border: none;
+    padding: 0;
+    margin-bottom: 12px;
+}
+.btn {
+    flex: 1;
+    padding: 14px;
+    border: none;
+    border-radius: var(--radius);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+.btn:active { opacity: 0.7; }
+.btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.btn-start { background: var(--green); color: #000; }
+.btn-stop { background: var(--red); color: #fff; }
+.btn-danger { background: var(--red); color: #fff; width: 100%; }
+.btn-save { background: var(--blue); color: #fff; width: 100%; margin-top: 12px; }
+
+/* Status bar */
+.status-bar {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-align: center;
+    padding: 10px;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* Stats */
+.stats-panel {
+    display: flex;
+    justify-content: space-around;
+    text-align: center;
+}
+.stats-panel label {
+    display: block;
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+}
+.stats-panel span {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* Config */
+.config-panel h3 { cursor: pointer; user-select: none; }
+.config-fields { margin-top: 12px; }
+.field {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--card-border);
+}
+.field label {
+    font-size: 13px;
+    color: var(--text-dim);
+}
+.field input {
+    width: 80px;
+    padding: 6px 10px;
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    text-align: right;
+}
+
+/* Trade log */
+.trade-list {
+    max-height: 300px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.trade-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--card-border);
+    font-size: 12px;
+}
+.trade-item:last-child { border: none; }
+.trade-action {
+    font-weight: 700;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+.trade-action.BUY { background: var(--green-bg); color: var(--green); }
+.trade-action.SELL { background: var(--blue-bg); color: var(--blue); }
+.trade-action.STOP_LOSS { background: var(--red-bg); color: var(--red); }
+.trade-price {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+}
+.trade-pnl {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+}
+.trade-time {
+    color: var(--text-dim);
+    font-size: 10px;
+}
+.trade-empty {
+    text-align: center;
+    color: var(--text-dim);
+    padding: 20px;
+    font-size: 13px;
+}

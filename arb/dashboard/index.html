@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="RENDER Bot">
+    <title>RENDER Trading Bot</title>
+    <link rel="manifest" href="manifest.json">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="arb.css">
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="header-left">
+            <h1>RENDER</h1>
+            <span class="badge" id="status-badge">OFFLINE</span>
+        </div>
+        <div class="header-right">
+            <span class="pnl" id="total-pnl">$0.00</span>
+        </div>
+    </header>
+
+    <!-- Price Panel -->
+    <section class="price-panel">
+        <div class="big-price" id="current-price">$--</div>
+        <div class="price-sub">
+            <span id="dip-indicator">-- from high</span>
+        </div>
+        <div class="price-meta">
+            <div><label>Bid</label><span id="bid">--</span></div>
+            <div><label>Ask</label><span id="ask">--</span></div>
+            <div><label>24h High</label><span id="recent-high">--</span></div>
+        </div>
+    </section>
+
+    <!-- Position Panel (shown when in trade) -->
+    <section class="position-panel" id="position-panel" style="display:none">
+        <h3>Open Position</h3>
+        <div class="position-grid">
+            <div><label>Entry</label><span id="pos-entry">--</span></div>
+            <div><label>Size</label><span id="pos-size">--</span></div>
+            <div><label>Target (+10%)</label><span id="pos-tp" class="green">--</span></div>
+            <div><label>Stop (-5%)</label><span id="pos-sl" class="red">--</span></div>
+        </div>
+        <div class="position-pnl" id="pos-pnl">$0.00 (0.0%)</div>
+        <button class="btn btn-danger" onclick="emergencySell()">EMERGENCY SELL</button>
+    </section>
+
+    <!-- Balances -->
+    <section class="balance-panel">
+        <div><label>USD</label><span id="usd-bal">$--</span></div>
+        <div><label>RENDER</label><span id="render-bal">--</span></div>
+    </section>
+
+    <!-- Controls -->
+    <section class="controls">
+        <button class="btn btn-start" id="btn-start" onclick="startBot()">START BOT</button>
+        <button class="btn btn-stop" id="btn-stop" onclick="stopBot()" disabled>STOP BOT</button>
+    </section>
+
+    <!-- Status -->
+    <section class="status-bar">
+        <span id="status-msg">Connecting...</span>
+    </section>
+
+    <!-- Stats -->
+    <section class="stats-panel">
+        <div><label>Trades Today</label><span id="daily-trades">0</span></div>
+        <div><label>Total Trades</label><span id="total-trades">0</span></div>
+        <div><label>Total P&L</label><span id="stat-pnl">$0.00</span></div>
+    </section>
+
+    <!-- Config (collapsible) -->
+    <section class="config-panel">
+        <h3 onclick="toggleConfig()">Settings <span id="config-arrow">&#9662;</span></h3>
+        <div class="config-fields" id="config-fields" style="display:none">
+            <div class="field">
+                <label>Dip Entry %</label>
+                <input type="number" id="cfg-dip" step="0.5" value="5">
+            </div>
+            <div class="field">
+                <label>Take Profit %</label>
+                <input type="number" id="cfg-tp" step="0.5" value="10">
+            </div>
+            <div class="field">
+                <label>Stop Loss %</label>
+                <input type="number" id="cfg-sl" step="0.5" value="5">
+            </div>
+            <div class="field">
+                <label>Lookback Hours</label>
+                <input type="number" id="cfg-lookback" step="1" value="24">
+            </div>
+            <div class="field">
+                <label>Poll Seconds</label>
+                <input type="number" id="cfg-poll" step="1" value="5">
+            </div>
+            <div class="field">
+                <label>Max Daily Trades</label>
+                <input type="number" id="cfg-maxdaily" step="1" value="10">
+            </div>
+            <button class="btn btn-save" onclick="saveConfig()">Save Settings</button>
+        </div>
+    </section>
+
+    <!-- Trade Log -->
+    <section class="trades-panel">
+        <h3>Recent Trades</h3>
+        <div class="trade-list" id="trade-list">
+            <div class="trade-empty">No trades yet</div>
+        </div>
+    </section>
+
+    <script src="arb.js"></script>
+</body>
+</html>
