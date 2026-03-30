@@ -67,19 +67,95 @@ All parameters are adjustable via the strategy settings gear icon:
 | Slippage | 2 ticks | Simulated slippage per fill |
 | Commission | $0.62 | Round-trip commission per contract |
 
+## Backtesting System
+
+Python-based backtesting that replicates the PineScript SMC logic for offline validation.
+
+### Requirements
+
+```bash
+pip install numpy pandas
+```
+
+### Basic Backtest
+
+```bash
+python trading/run_backtest.py
+```
+
+Runs the strategy over 2.5 years of synthetic MNQ 15-min data and prints a performance report with win rate, profit factor, Sharpe ratio, max drawdown, and exit reason breakdown.
+
+### Walk-Forward Analysis
+
+```bash
+python trading/run_backtest.py --walk-forward --folds 5
+```
+
+Splits data into N folds, trains on each window and tests on the next. Shows in-sample vs out-of-sample performance per fold with aggregate OOS metrics.
+
+### Custom Parameters
+
+```bash
+python trading/run_backtest.py --params trading/optimized_params.json
+```
+
+### Options
+
+| Flag | Description |
+|------|-------------|
+| `--optimize` | Run grid search parameter optimization |
+| `--walk-forward` | Run walk-forward analysis |
+| `--params FILE` | Use custom parameters JSON |
+| `--csv FILE` | Use real OHLCV data from CSV instead of synthetic |
+| `--years N` | Years of synthetic data (default: 2.5) |
+| `--seed N` | Random seed for reproducibility (default: 42) |
+| `--folds N` | Walk-forward folds (default: 5) |
+| `--output FILE` | Save results to JSON |
+
 ## Auto-Improvement System
 
-A Claude Code scheduled agent runs every 30 minutes:
-1. Checks if 10+ new trades have occurred since last update
-2. If yes: analyzes performance, optimizes parameters, pushes updated code
-3. If no: waits for next cycle
+### Parameter Optimization
+
+```bash
+python trading/run_backtest.py --optimize
+```
+
+Grid search over key parameters (swing lookback, OB max age, ATR SL multiplier, R:R ratio, FVG min size, P/D lookback) with guard rails:
+- Minimum 10 trades required
+- Max drawdown < 20%
+- Minimum 30% win rate
+- Objective: maximize Sharpe ratio
+
+Outputs:
+- `optimized_params.json` — best parameter set
+- Updated `trade_log.json` with optimization history
+- Updated `CHANGELOG.md` with version bump
+- Before/after comparison report
 
 ### Getting Updates
-1. Check this repo for new commits on the `claude/ai-trading-agent-pinescript-d6K1I` branch
+1. Check this repo for new commits
 2. Copy the updated `smc_mnq_strategy.pine` code
 3. Paste into TradingView Pine Editor → Save → strategy auto-applies
 
 Changes are logged in `CHANGELOG.md`.
+
+## Project Structure
+
+```
+trading/
+├── smc_mnq_strategy.pine    # PineScript v5 strategy
+├── run_backtest.py          # CLI entry point
+├── auto_improve.py          # Grid search optimizer
+├── optimized_params.json    # Best parameters (after optimization)
+├── trade_log.json           # Trade & optimization history
+├── CHANGELOG.md             # Version history
+├── README.md                # This file
+└── backtest/
+    ├── data_provider.py     # Synthetic MNQ data generator
+    ├── smc_engine.py        # Python SMC logic (mirrors PineScript)
+    ├── backtester.py        # Backtest runner & metrics
+    └── report.py            # Formatted console reports
+```
 
 ## Risk Disclaimer
 
