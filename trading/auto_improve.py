@@ -450,14 +450,14 @@ def _save_profitable_snapshot(output_dir: str, params: dict, metrics: dict,
 
 
 # Fine-grained refinement steps around a seed parameter set
-# Wide range + fine steps for maximum precision (~13k combos per seed)
+# Tighter range + coarser steps (~500 combos per seed, ~1500 total)
 REFINE_STEPS = {
-    "swingLen":   {"step": 1,     "range": 2,    "min": 2,    "max": 15},
-    "obMaxAge":   {"step": 25,    "range": 50,   "min": 25,   "max": 300},
-    "atrSlMult":  {"step": 0.1,   "range": 0.3,  "min": 0.3,  "max": 4.0},
+    "swingLen":   {"step": 1,     "range": 1,    "min": 2,    "max": 15},
+    "obMaxAge":   {"step": 25,    "range": 25,   "min": 25,   "max": 300},
+    "atrSlMult":  {"step": 0.2,   "range": 0.4,  "min": 0.3,  "max": 4.0},
     "rrRatio":    {"step": 0.25,  "range": 0.5,  "min": 0.5,  "max": 5.0},
-    "fvgMinSize": {"step": 0.125, "range": 0.25, "min": 0.01, "max": 3.0},
-    "pdLookback": {"step": 5,     "range": 10,   "min": 10,   "max": 150},
+    "fvgMinSize": {"step": 0.25,  "range": 0.25, "min": 0.01, "max": 3.0},
+    "pdLookback": {"step": 10,    "range": 10,   "min": 10,   "max": 150},
 }
 
 
@@ -681,7 +681,7 @@ def loop_until_profitable(data: pd.DataFrame, output_dir: str = None,
         # Phase 2: Refine top results on train data
         print(f"\n--- Phase 2: Refinement on train data ---")
         refined = refine(train_data, seed_results=opt_result["all_results"],
-                         top_n=3, output_dir=output_dir)
+                         top_n=1, output_dir=output_dir)
 
         # Phase 3: Validate on TEST data (out-of-sample)
         print(f"\n--- Phase 3: Out-of-sample validation ---")
