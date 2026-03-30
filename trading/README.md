@@ -12,6 +12,78 @@ A PineScript v5 strategy that trades MNQ using institutional Smart Money Concept
 - **Premium/Discount Zones:** Fibonacci-based trade direction filter
 - **Multi-Timeframe:** 4H bias + 15m entries
 
+## Run on Your PC (Backtesting & Optimization)
+
+### Prerequisites
+
+- Python 3.9+
+- git
+
+### Quick Start
+
+```bash
+git clone https://github.com/connorthessj-debug/Cluade.git
+cd Cluade
+git checkout claude/resume-archived-session-XO29G
+pip install -r requirements.txt
+```
+
+### Commands
+
+```bash
+# Basic backtest (fetches 2 years of real data from Yahoo Finance)
+python trading/run_backtest.py --instrument mnq
+
+# Quick optimization (~54 combos, fast sanity check)
+python trading/run_backtest.py --instrument mnq --optimize --quick
+
+# Full optimization + refinement (~15k combos)
+python trading/run_backtest.py --instrument mnq --optimize --refine
+
+# Loop until profitable (up to 5 iterations, ~75k combos total)
+python trading/run_backtest.py --instrument mnq --loop
+
+# Different instrument + style
+python trading/run_backtest.py --instrument gold --style scalping --loop
+
+# All instruments x all styles at once
+python trading/run_all.py --loop
+```
+
+### Available Instruments
+
+| Instrument | Symbol | Description |
+|-----------|--------|-------------|
+| `mnq` | NQ=F | Mini Nasdaq 100 Futures |
+| `gold` | GC=F | Gold Futures |
+| `es` | ES=F | S&P 500 E-mini Futures |
+| `oil` | CL=F | Crude Oil Futures |
+| `eurusd` | EURUSD=X | EUR/USD Forex |
+| `btc` | BTC-USD | Bitcoin |
+
+### Available Styles
+
+| Style | Description |
+|-------|-------------|
+| `smc_swing` | Default. 4H bias + 15m entries, wider stops, R:R 2.0+ |
+| `scalping` | Tighter stops, lower R:R (1.2), more trades per day |
+
+### Output
+
+Results are saved to `trading/strategies/{style}/{instrument}/`:
+- `optimized_params.json` — best parameters found
+- `trade_log.json` — all trades from the best run
+- `CHANGELOG.md` — optimization history
+
+### Tips for Speed
+
+- Your PC's CPU speed directly determines optimization time (~3s per backtest on 45k bars)
+- Use `--quick` first to verify everything works, then run the full `--loop`
+- Each iteration tests 1,728 grid combos + ~13,000 refinement combos
+- On a modern desktop, expect ~1-2 hours for a full `--loop` on one instrument
+
+---
+
 ## Setup Instructions (iPhone)
 
 ### Step 1: Open TradingView
@@ -142,19 +214,27 @@ Changes are logged in `CHANGELOG.md`.
 ## Project Structure
 
 ```
-trading/
-├── smc_mnq_strategy.pine    # PineScript v5 strategy
-├── run_backtest.py          # CLI entry point
-├── auto_improve.py          # Grid search optimizer
-├── optimized_params.json    # Best parameters (after optimization)
-├── trade_log.json           # Trade & optimization history
-├── CHANGELOG.md             # Version history
-├── README.md                # This file
-└── backtest/
-    ├── data_provider.py     # Synthetic MNQ data generator
-    ├── smc_engine.py        # Python SMC logic (mirrors PineScript)
-    ├── backtester.py        # Backtest runner & metrics
-    └── report.py            # Formatted console reports
+Cluade/
+├── requirements.txt             # pip install -r requirements.txt
+├── .gitignore
+└── trading/
+    ├── smc_mnq_strategy.pine    # PineScript v5 strategy (reference)
+    ├── run_backtest.py          # CLI entry point
+    ├── run_all.py               # Batch runner (all instruments x styles)
+    ├── auto_improve.py          # Grid search + refinement optimizer
+    ├── README.md                # This file
+    ├── CHANGELOG.md             # Version history
+    ├── strategies/              # Output: optimized params per instrument/style
+    │   ├── smc_swing/
+    │   │   └── mnq/
+    │   └── scalping/
+    │       └── gold/
+    └── backtest/
+        ├── data_provider.py     # Yahoo Finance data fetcher + synthetic fallback
+        ├── smc_engine.py        # Python SMC logic (mirrors PineScript exactly)
+        ├── backtester.py        # Backtest runner & metrics
+        ├── instruments.py       # Instrument configs + style defaults
+        └── report.py            # Formatted console reports
 ```
 
 ## Risk Disclaimer
