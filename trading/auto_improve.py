@@ -357,7 +357,7 @@ def _update_changelog(path: str, baseline_metrics: dict, opt_metrics: dict,
                       params: dict):
     """Prepend optimization entry to CHANGELOG.md."""
     try:
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             existing = f.read()
     except FileNotFoundError:
         existing = "# Changelog\n"
@@ -366,7 +366,7 @@ def _update_changelog(path: str, baseline_metrics: dict, opt_metrics: dict,
     param_lines = "\n".join(f"  - `{k}`: {v}" for k, v in params.items())
 
     entry = f"""
-## v1.1.0 — {date_str}
+## v1.1.0 - {date_str}
 
 ### Added
 - Python backtesting framework with SMC engine
@@ -378,10 +378,10 @@ def _update_changelog(path: str, baseline_metrics: dict, opt_metrics: dict,
 {param_lines}
 
 ### Performance (Backtest)
-- Sharpe: {baseline_metrics['sharpe_ratio']:.4f} → {opt_metrics['sharpe_ratio']:.4f}
-- Win Rate: {baseline_metrics['win_rate']:.2f}% → {opt_metrics['win_rate']:.2f}%
-- Profit Factor: {baseline_metrics['profit_factor']:.4f} → {opt_metrics['profit_factor']:.4f}
-- Net P&L: ${baseline_metrics['net_pnl']:.2f} → ${opt_metrics['net_pnl']:.2f}
+- Sharpe: {baseline_metrics['sharpe_ratio']:.4f} -> {opt_metrics['sharpe_ratio']:.4f}
+- Win Rate: {baseline_metrics['win_rate']:.2f}% -> {opt_metrics['win_rate']:.2f}%
+- Profit Factor: {baseline_metrics['profit_factor']:.4f} -> {opt_metrics['profit_factor']:.4f}
+- Net P&L: ${baseline_metrics['net_pnl']:.2f} -> ${opt_metrics['net_pnl']:.2f}
 
 """
 
@@ -395,7 +395,7 @@ def _update_changelog(path: str, baseline_metrics: dict, opt_metrics: dict,
 
     new_content = "\n".join(lines[:header_end]) + "\n" + entry + "\n".join(lines[header_end:])
 
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         f.write(new_content)
 
 
