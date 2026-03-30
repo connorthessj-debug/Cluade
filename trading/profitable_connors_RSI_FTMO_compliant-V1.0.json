@@ -1,0 +1,33 @@
+{
+  "maLen": 250,
+  "maType": "SMA",
+  "rsiLen": 2,
+  "rsiOversold": 19,
+  "rsiOverbought": 89,
+  "exitMaLen": 3,
+  "atrPeriod": 14,
+  "atrSlMult": 0.5,
+  "rrRatio": 1.8,
+  "useTrailing": true,
+  "trailAfterR": 1.0,
+  "sessEnabled": true,
+  "sessStartHour": 9,
+  "sessStartMin": 30,
+  "sessEndHour": 16,
+  "sessEndMin": 0,
+  "maxDailyTrades": 5,
+  "slippage_ticks": 2,
+  "tick_size": 0.25,
+  "commission": 0.62,
+  "point_value": 2.0,
+  "spread": 0.0,
+  "min_volume": 0,
+  "account_balance": 10000,
+  "max_daily_loss_pct": 5.0,
+  "max_total_dd_pct": 10.0,
+  "_metadata": {
+    "source": "bayesian_optimization",
+    "version": "V1.0",
+    "name": "profitable_connors_RSI_FTMO_compliant-V1.0"
+  }
+}

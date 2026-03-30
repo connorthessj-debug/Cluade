@@ -1,0 +1,85 @@
+{
+  "params": {
+    "maLen": 250,
+    "maType": "SMA",
+    "rsiLen": 2,
+    "rsiOversold": 19,
+    "rsiOverbought": 89,
+    "exitMaLen": 3,
+    "atrPeriod": 14,
+    "atrSlMult": 0.5,
+    "rrRatio": 1.8,
+    "useTrailing": true,
+    "trailAfterR": 1.0,
+    "sessEnabled": true,
+    "sessStartHour": 9,
+    "sessStartMin": 30,
+    "sessEndHour": 16,
+    "sessEndMin": 0,
+    "maxDailyTrades": 5,
+    "slippage_ticks": 2,
+    "tick_size": 0.25,
+    "commission": 0.62,
+    "point_value": 2.0,
+    "spread": 0.0,
+    "min_volume": 0,
+    "account_balance": 10000,
+    "max_daily_loss_pct": 5.0,
+    "max_total_dd_pct": 10.0
+  },
+  "metrics": {
+    "total_trades": 37,
+    "wins": 23,
+    "losses": 14,
+    "win_rate": 62.16,
+    "profit_factor": 2.1648,
+    "net_pnl": 3600.24,
+    "max_drawdown": 1160.92,
+    "max_drawdown_pct": 7.86,
+    "sharpe_ratio": 1.2639,
+    "sortino_ratio": 3.2747,
+    "calmar_ratio": 1.1945,
+    "avg_r_multiple": 0.4816,
+    "avg_win": 290.92,
+    "avg_loss": -220.78,
+    "long_trades": 37,
+    "short_trades": 0,
+    "gross_profit": 6691.19,
+    "gross_loss": 3090.94
+  },
+  "trades_count": 37,
+  "monte_carlo": {
+    "n_simulations": 1000,
+    "n_trades": 37,
+    "pnl": {
+      "p5": 3600.26,
+      "p25": 3600.26,
+      "p50": 3600.26,
+      "p75": 3600.26,
+      "p95": 3600.26
+    },
+    "max_drawdown": {
+      "p5": 504.26,
+      "p25": 669.26,
+      "p50": 796.43,
+      "p75": 990.69,
+      "p95": 1342.6
+    },
+    "sharpe": {
+      "p5": 5.3147,
+      "p25": 5.3147,
+      "p50": 5.3147,
+      "p75": 5.3147,
+      "p95": 5.3147
+    },
+    "profit_factor": {
+      "p5": 2.1648,
+      "p25": 2.1648,
+      "p50": 2.1648,
+      "p75": 2.1648,
+      "p95": 2.1648
+    },
+    "robust": true,
+    "pct_profitable": 100.0
+  }
+}
