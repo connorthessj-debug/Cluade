@@ -1,0 +1,6 @@
+{
+  "swingLen": 7,
+  "atrSlMult": 1.0,
+  "rrRatio": 1.5,
+  "pdLookback": 30
+}

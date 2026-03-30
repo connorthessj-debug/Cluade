@@ -1,13 +1,24 @@
 {
-  "strategy_version": "1.0.0",
-  "last_update": "2026-03-29T00:00:00Z",
-  "last_trade_count": 0,
+  "strategy_version": "1.0.1",
+  "last_update": "2026-03-30T10:49:31.518266",
+  "last_trade_count": 394,
   "update_history": [
     {
       "version": "1.0.0",
       "date": "2026-03-29",
       "trade_count_at_update": 0,
       "changes": "Initial strategy deployment"
+    },
+    {
+      "version": "1.0.1",
+      "date": "2026-03-30",
+      "trade_count_at_update": 394,
+      "changes": "Parameter optimization: Sharpe -1.1602 -> -0.0293",
+      "optimized_params": {
+        "atrSlMult": 1.0,
+        "rrRatio": 1.5,
+        "pdLookback": 30
+      }
     }
   ]
 }
