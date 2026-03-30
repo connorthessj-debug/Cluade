@@ -35,10 +35,25 @@ QUICK_SEARCH_SPACE = {
     "pdLookback":  [30, 50],
 }
 
-# Guard rails
+# RSI2 search space
+RSI2_SEARCH_SPACE = {
+    "rsiLen":        [2, 3, 4],
+    "rsiOversold":   [5, 10, 15, 20],
+    "rsiOverbought": [80, 85, 90, 95],
+    "maLen":         [100, 150, 200],
+    "exitMaLen":     [3, 5, 7, 10],
+    "atrSlMult":     [1.0, 1.5, 2.0, 2.5],
+    "rrRatio":       [1.5, 2.0, 2.5, 3.0],
+}
+
+# FTMO guard rails ($10k account)
 MIN_TRADES = 10
-MAX_DRAWDOWN_PCT = 20.0
+MAX_DRAWDOWN_PCT = 10.0    # FTMO max total drawdown
+MAX_DAILY_DD_PCT = 5.0     # FTMO max daily loss
 MIN_WIN_RATE = 30.0
+ACCOUNT_BALANCE = 10000.0
+FTMO_CHALLENGE_FEE = 155.0   # FTMO $10k challenge fee
+FTMO_PROFIT_SPLIT = 0.80     # Trader keeps 80% of profits
 
 # Objective functions
 OBJECTIVES = {
@@ -203,7 +218,7 @@ def optimize(data: pd.DataFrame, output_dir: str = None,
 
 def optimize_bayesian(data: pd.DataFrame, output_dir: str = None,
                       n_trials: int = 300, base_params: dict = None,
-                      extra_space: dict = None) -> dict:
+                      extra_space: dict = None, engine_type: str = "smc") -> dict:
     """
     Bayesian optimization using Optuna's TPE sampler.
     Finds good params in ~200-500 trials instead of 15k grid combos.
@@ -224,11 +239,17 @@ def optimize_bayesian(data: pd.DataFrame, output_dir: str = None,
     if output_dir is None:
         output_dir = os.path.dirname(os.path.abspath(__file__))
 
-    bp = base_params or DEFAULT_PARAMS.copy()
+    if engine_type == "rsi2":
+        from trading.backtest.rsi2_engine import RSI2_DEFAULT_PARAMS
+        bp = base_params or RSI2_DEFAULT_PARAMS.copy()
+        search_keys = RSI2_SEARCH_SPACE
+    else:
+        bp = base_params or DEFAULT_PARAMS.copy()
+        search_keys = SEARCH_SPACE
 
     # Baseline
     print("Running baseline backtest...")
-    baseline = run_backtest(data, bp)
+    baseline = run_backtest(data, bp, engine_type=engine_type)
     print(f"  Baseline: {baseline['metrics']['total_trades']} trades, "
           f"Sharpe={baseline['metrics']['sharpe_ratio']:.4f}, "
           f"PnL=${baseline['metrics']['net_pnl']:.2f}")
@@ -237,12 +258,21 @@ def optimize_bayesian(data: pd.DataFrame, output_dir: str = None,
 
     def trial_objective(trial):
         params = bp.copy()
-        params["swingLen"] = trial.suggest_int("swingLen", 2, 12)
-        params["obMaxAge"] = trial.suggest_int("obMaxAge", 25, 200, step=25)
-        params["atrSlMult"] = trial.suggest_float("atrSlMult", 0.5, 3.5, step=0.1)
-        params["rrRatio"] = trial.suggest_float("rrRatio", 0.8, 4.0, step=0.25)
-        params["fvgMinSize"] = trial.suggest_float("fvgMinSize", 0.05, 2.0, step=0.05)
-        params["pdLookback"] = trial.suggest_int("pdLookback", 15, 100, step=5)
+        if engine_type == "rsi2":
+            params["rsiLen"] = trial.suggest_int("rsiLen", 2, 5)
+            params["rsiOversold"] = trial.suggest_int("rsiOversold", 3, 25)
+            params["rsiOverbought"] = trial.suggest_int("rsiOverbought", 75, 97)
+            params["maLen"] = trial.suggest_int("maLen", 50, 300, step=25)
+            params["exitMaLen"] = trial.suggest_int("exitMaLen", 2, 15)
+            params["atrSlMult"] = trial.suggest_float("atrSlMult", 0.5, 3.5, step=0.1)
+            params["rrRatio"] = trial.suggest_float("rrRatio", 0.8, 4.0, step=0.25)
+        else:
+            params["swingLen"] = trial.suggest_int("swingLen", 2, 12)
+            params["obMaxAge"] = trial.suggest_int("obMaxAge", 25, 200, step=25)
+            params["atrSlMult"] = trial.suggest_float("atrSlMult", 0.5, 3.5, step=0.1)
+            params["rrRatio"] = trial.suggest_float("rrRatio", 0.8, 4.0, step=0.25)
+            params["fvgMinSize"] = trial.suggest_float("fvgMinSize", 0.05, 2.0, step=0.05)
+            params["pdLookback"] = trial.suggest_int("pdLookback", 15, 100, step=5)
 
         if extra_space:
             for k, v in extra_space.items():
@@ -253,10 +283,10 @@ def optimize_bayesian(data: pd.DataFrame, output_dir: str = None,
                 else:
                     params[k] = trial.suggest_float(k, min(v), max(v))
 
-        result = run_backtest(data, params)
+        result = run_backtest(data, params, engine_type=engine_type)
         score = _objective(result["metrics"])
 
-        changed = {k: params[k] for k in SEARCH_SPACE.keys()}
+        changed = {k: params[k] for k in search_keys.keys()}
         all_results.append({
             "params": changed,
             "score": score,
@@ -278,14 +308,14 @@ def optimize_bayesian(data: pd.DataFrame, output_dir: str = None,
     best_params = bp.copy()
     for k, v in best_trial.params.items():
         best_params[k] = v
-    best_result = run_backtest(data, best_params)
+    best_result = run_backtest(data, best_params, engine_type=engine_type)
 
-    changed = {k: best_params[k] for k in SEARCH_SPACE.keys()}
+    changed = {k: best_params[k] for k in search_keys.keys()}
     print_optimization_report(baseline, best_result, changed)
 
     # Save
     opt_params_path = os.path.join(output_dir, "optimized_params.json")
-    opt_out = {k: best_params[k] for k in SEARCH_SPACE.keys()}
+    opt_out = {k: best_params[k] for k in search_keys.keys()}
     opt_out["_metadata"] = {
         "optimized_at": datetime.now().isoformat(),
         "method": "bayesian_tpe",
@@ -615,7 +645,7 @@ def refine(data: pd.DataFrame, seed_params: dict = None,
 
 def loop_until_profitable(data: pd.DataFrame, output_dir: str = None,
                           max_iterations: int = 5, base_params: dict = None,
-                          use_bayesian: bool = True) -> dict:
+                          use_bayesian: bool = True, engine_type: str = "smc") -> dict:
     """
     Repeatedly optimize and refine until the strategy is profitable.
 
@@ -671,7 +701,8 @@ def loop_until_profitable(data: pd.DataFrame, output_dir: str = None,
             n_trials = 300 + iteration * 100  # More trials each iteration
             opt_result = optimize_bayesian(train_data, output_dir=output_dir,
                                            n_trials=n_trials, base_params=current_params,
-                                           extra_space=extra if extra else None)
+                                           extra_space=extra if extra else None,
+                                           engine_type=engine_type)
         else:
             space = SEARCH_SPACE.copy()
             space.update(extra)
@@ -690,7 +721,7 @@ def loop_until_profitable(data: pd.DataFrame, output_dir: str = None,
         best_params_full.update(refined["best_params"])
 
         train_result = refined["best"]
-        test_result = run_backtest(test_data, best_params_full)
+        test_result = run_backtest(test_data, best_params_full, engine_type=engine_type)
         train_metrics = train_result["metrics"]
         test_metrics = test_result["metrics"]
 
@@ -704,7 +735,7 @@ def loop_until_profitable(data: pd.DataFrame, output_dir: str = None,
         print(f"  {'Profit Factor':20s} {train_metrics['profit_factor']:>12.4f} {test_metrics['profit_factor']:>14.4f}")
 
         # Use full-data score for overall ranking
-        full_result = run_backtest(data, best_params_full)
+        full_result = run_backtest(data, best_params_full, engine_type=engine_type)
         score = _objective(full_result["metrics"])
         metrics = full_result["metrics"]
 

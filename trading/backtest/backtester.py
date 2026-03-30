@@ -8,9 +8,11 @@ import numpy as np
 import pandas as pd
 from datetime import datetime
 from .smc_engine import SMCEngine, DEFAULT_PARAMS
+from .rsi2_engine import RSI2Engine, RSI2_DEFAULT_PARAMS
 
 
-def run_backtest(data: pd.DataFrame, params: dict = None) -> dict:
+def run_backtest(data: pd.DataFrame, params: dict = None,
+                 engine_type: str = "smc") -> dict:
     """
     Run a single backtest over the provided data.
 
@@ -21,7 +23,12 @@ def run_backtest(data: pd.DataFrame, params: dict = None) -> dict:
     Returns:
         Dict with trades list and performance metrics
     """
-    engine = SMCEngine(params)
+    if engine_type == "rsi2":
+        engine = RSI2Engine(params or RSI2_DEFAULT_PARAMS)
+        params = params or RSI2_DEFAULT_PARAMS
+    else:
+        engine = SMCEngine(params)
+        params = params or DEFAULT_PARAMS
 
     timestamps = data["timestamp"].values
     opens = data["open"].values
@@ -37,10 +44,10 @@ def run_backtest(data: pd.DataFrame, params: dict = None) -> dict:
                            float(volumes[i]))
 
     trades = engine.trades
-    metrics = compute_metrics(trades, data, params or DEFAULT_PARAMS)
+    metrics = compute_metrics(trades, data, params)
 
     return {
-        "params": params or DEFAULT_PARAMS,
+        "params": params,
         "trades": [_trade_to_dict(t) for t in trades],
         "metrics": metrics,
     }
@@ -105,7 +112,7 @@ def compute_metrics(trades: list, data: pd.DataFrame, params: dict) -> dict:
     max_dd = float(np.max(drawdowns)) if len(drawdowns) > 0 else 0.0
 
     # Max drawdown as percentage of peak equity
-    initial_capital = 10000.0  # Notional
+    initial_capital = float(params.get("account_balance", 10000))
     equity_with_capital = initial_capital + equity_curve
     peak_with_capital = np.maximum.accumulate(equity_with_capital)
     dd_pct = (peak_with_capital - equity_with_capital) / peak_with_capital * 100

@@ -80,6 +80,9 @@ def main():
                         help="Loop optimize+refine until profitable")
     parser.add_argument("--walk-forward", action="store_true",
                         help="Run walk-forward analysis")
+    parser.add_argument("--strategy", type=str, default="smc",
+                        choices=["smc", "rsi2"],
+                        help="Strategy engine (default: smc)")
     parser.add_argument("--instrument", type=str, default=None,
                         choices=list(INSTRUMENTS.keys()),
                         help="Instrument to trade")
@@ -131,20 +134,30 @@ def main():
     print("Loading data...")
     data = load_data(args, args.instrument)
 
+    # Determine engine type and style
+    engine_type = args.strategy
+    style = args.style
+    if engine_type == "rsi2":
+        style = "rsi2"
+
     # Build params
     if args.params:
-        base = get_params(args.instrument or "mnq", args.style)
+        base = get_params(args.instrument or "mnq", style)
         params = load_params(args.params, base)
         print(f"Loaded custom parameters from {args.params}")
     elif args.instrument:
-        params = get_params(args.instrument, args.style)
-        print(f"Using {args.style} params for {args.instrument}")
+        params = get_params(args.instrument, style)
+        print(f"Using {style} params for {args.instrument}")
     else:
-        params = DEFAULT_PARAMS.copy()
+        if engine_type == "rsi2":
+            from trading.backtest.rsi2_engine import RSI2_DEFAULT_PARAMS
+            params = RSI2_DEFAULT_PARAMS.copy()
+        else:
+            params = DEFAULT_PARAMS.copy()
 
     # Determine output directory
     inst_key = args.instrument or "mnq"
-    out_dir = get_output_dir(inst_key, args.style)
+    out_dir = get_output_dir(inst_key, style)
     os.makedirs(out_dir, exist_ok=True)
 
     use_bayesian = not args.grid
@@ -153,7 +166,8 @@ def main():
         from trading.auto_improve import loop_until_profitable
         result = loop_until_profitable(data, output_dir=out_dir,
                                        base_params=params,
-                                       use_bayesian=use_bayesian)
+                                       use_bayesian=use_bayesian,
+                                       engine_type=engine_type)
         if args.output:
             save_results(result, args.output)
 
@@ -161,7 +175,8 @@ def main():
         if use_bayesian and not args.quick:
             from trading.auto_improve import optimize_bayesian
             result = optimize_bayesian(data, output_dir=out_dir,
-                                       base_params=params)
+                                       base_params=params,
+                                       engine_type=engine_type)
         else:
             from trading.auto_improve import optimize
             result = optimize(data, output_dir=out_dir, quick=args.quick)
@@ -189,7 +204,7 @@ def main():
 
     else:
         print("\nRunning backtest...")
-        result = run_backtest(data, params)
+        result = run_backtest(data, params, engine_type=engine_type)
         print_backtest_report(result)
 
         if args.monte_carlo:

@@ -1,0 +1,221 @@
+// This Pine Script(TM) v5 source code is subject to the terms of the Mozilla Public License 2.0
+// https://mozilla.org/MPL/2.0/
+
+//@version=5
+strategy("Connors RSI2 Mean Reversion", overlay=true, default_qty_type=strategy.fixed,
+         default_qty_value=1, initial_capital=10000, commission_type=strategy.commission.cash_per_order,
+         commission_value=0.62, slippage=2)
+
+// ============================================================
+// SECTION 0: INPUT PARAMETERS
+// ============================================================
+
+// --- Trend Filter ---
+maLen       = input.int(200, "MA Length", minval=10, maxval=500, group="Trend Filter")
+maType      = input.string("SMA", "MA Type", options=["SMA", "EMA"], group="Trend Filter")
+
+// --- RSI ---
+rsiLen      = input.int(2, "RSI Length", minval=1, maxval=20, group="RSI")
+rsiOS       = input.float(10, "RSI Oversold", minval=1, maxval=50, step=1, group="RSI")
+rsiOB       = input.float(90, "RSI Overbought", minval=50, maxval=99, step=1, group="RSI")
+
+// --- Exit ---
+exitMaLen   = input.int(5, "Exit MA Length", minval=2, maxval=50, group="Exit")
+
+// --- Risk Management ---
+atrPeriod   = input.int(14, "ATR Period", minval=5, maxval=50, group="Risk Management")
+atrSlMult   = input.float(1.5, "ATR SL Multiplier", minval=0.5, maxval=5.0, step=0.1, group="Risk Management")
+rrRatio     = input.float(2.0, "Risk:Reward Ratio", minval=0.5, maxval=5.0, step=0.25, group="Risk Management")
+useTrailing = input.bool(true, "Use Trailing Stop", group="Risk Management")
+trailAfterR = input.float(1.0, "Trail After R-Multiple", minval=0.5, maxval=3.0, step=0.25, group="Risk Management")
+
+// --- Session Filter ---
+sessEnabled     = input.bool(true, "Session Filter", group="Session")
+sessStartHour   = input.int(9, "Session Start Hour", minval=0, maxval=23, group="Session")
+sessStartMin    = input.int(30, "Session Start Min", minval=0, maxval=59, group="Session")
+sessEndHour     = input.int(16, "Session End Hour", minval=0, maxval=23, group="Session")
+sessEndMin      = input.int(0, "Session End Min", minval=0, maxval=59, group="Session")
+maxDailyTrades  = input.int(5, "Max Daily Trades", minval=1, maxval=20, group="Session")
+
+// --- FTMO Rules ---
+accountBalance  = input.float(10000, "Account Balance", minval=1000, group="FTMO")
+maxDailyLossPct = input.float(5.0, "Max Daily Loss %", minval=1, maxval=10, step=0.5, group="FTMO")
+maxTotalDDPct   = input.float(10.0, "Max Total DD %", minval=1, maxval=20, step=0.5, group="FTMO")
+
+// --- Visual ---
+showMA      = input.bool(true, "Show Trend MA", group="Visual")
+showExitMA  = input.bool(true, "Show Exit MA", group="Visual")
+showRSI     = input.bool(false, "Show RSI (separate pane)", group="Visual")
+
+// ============================================================
+// SECTION 1: INDICATORS
+// ============================================================
+
+// Trend MA
+trendMA = maType == "EMA" ? ta.ema(close, maLen) : ta.sma(close, maLen)
+
+// RSI
+rsiVal = ta.rsi(close, rsiLen)
+
+// Exit MA
+exitMA = ta.sma(close, exitMaLen)
+
+// ATR
+atrVal = ta.atr(atrPeriod)
+
+// ============================================================
+// SECTION 2: SESSION & TRADE MANAGEMENT
+// ============================================================
+
+isInSession() =>
+    if not sessEnabled
+        true
+    else
+        t = hour * 60 + minute
+        start = sessStartHour * 60 + sessStartMin
+        end_t = sessEndHour * 60 + sessEndMin
+        t >= start and t < end_t
+
+var int dailyTrades = 0
+var float dailyPnL = 0.0
+var float totalPnL = 0.0
+var float peakEquity = accountBalance
+var bool ftmoBreached = false
+var bool dailyLossBreached = false
+
+// Reset daily counters
+if ta.change(time("D")) != 0
+    dailyTrades := 0
+    dailyPnL := 0.0
+    dailyLossBreached := false
+
+canTrade = isInSession() and dailyTrades < maxDailyTrades and not dailyLossBreached and not ftmoBreached
+
+// ============================================================
+// SECTION 3: ENTRY CONDITIONS
+// ============================================================
+
+longCond = canTrade and close > trendMA and rsiVal < rsiOS and strategy.position_size == 0
+shortCond = canTrade and close < trendMA and rsiVal > rsiOB and strategy.position_size == 0
+
+// ============================================================
+// SECTION 4: RISK MANAGEMENT
+// ============================================================
+
+var float entryPrice = na
+var float slPrice = na
+var float tpPrice = na
+var float slDist = na
+var float trailStop = na
+var bool trailActive = false
+
+if longCond
+    slDist := math.max(atrVal * atrSlMult, syminfo.mintick)
+    entryPrice := close
+    slPrice := close - slDist
+    tpPrice := close + slDist * rrRatio
+    trailStop := na
+    trailActive := false
+    dailyTrades += 1
+    strategy.entry("Long", strategy.long)
+    strategy.exit("Long Exit", "Long", stop=slPrice, limit=tpPrice)
+
+if shortCond
+    slDist := math.max(atrVal * atrSlMult, syminfo.mintick)
+    entryPrice := close
+    slPrice := close + slDist
+    tpPrice := close - slDist * rrRatio
+    trailStop := na
+    trailActive := false
+    dailyTrades += 1
+    strategy.entry("Short", strategy.short)
+    strategy.exit("Short Exit", "Short", stop=slPrice, limit=tpPrice)
+
+// ============================================================
+// SECTION 5: EXIT CONDITIONS (SMA Crossover + Trailing)
+// ============================================================
+
+// Long exits
+if strategy.position_size > 0
+    // SMA crossover exit
+    if ta.crossover(close, exitMA)
+        strategy.close("Long", comment="SMA Exit")
+
+    // Trailing stop
+    if useTrailing and not na(slDist) and slDist > 0
+        rAchieved = (high - entryPrice) / slDist
+        if rAchieved >= trailAfterR
+            trailActive := true
+        if trailActive
+            newTrail = high - slDist
+            if na(trailStop) or newTrail > trailStop
+                trailStop := newTrail
+            if low <= trailStop
+                strategy.close("Long", comment="Trail Stop")
+
+// Short exits
+if strategy.position_size < 0
+    if ta.crossunder(close, exitMA)
+        strategy.close("Short", comment="SMA Exit")
+
+    if useTrailing and not na(slDist) and slDist > 0
+        rAchieved = (entryPrice - low) / slDist
+        if rAchieved >= trailAfterR
+            trailActive := true
+        if trailActive
+            newTrail = low + slDist
+            if na(trailStop) or newTrail < trailStop
+                trailStop := newTrail
+            if high >= trailStop
+                strategy.close("Short", comment="Trail Stop")
+
+// ============================================================
+// SECTION 6: FTMO P&L TRACKING
+// ============================================================
+
+if strategy.closedtrades > 0
+    lastPnL = strategy.closedtrades.profit(strategy.closedtrades - 1)
+    totalPnL += lastPnL
+    dailyPnL += lastPnL
+
+    // Daily loss check
+    maxDailyLoss = accountBalance * maxDailyLossPct / 100
+    if dailyPnL <= -maxDailyLoss
+        dailyLossBreached := true
+
+    // Total drawdown check
+    currentEquity = accountBalance + totalPnL
+    if currentEquity > peakEquity
+        peakEquity := currentEquity
+    drawdown = peakEquity - currentEquity
+    maxDD = accountBalance * maxTotalDDPct / 100
+    if drawdown >= maxDD
+        ftmoBreached := true
+
+// ============================================================
+// SECTION 7: VISUAL OVERLAYS
+// ============================================================
+
+plot(showMA ? trendMA : na, "Trend MA", color=color.new(color.blue, 0), linewidth=2)
+plot(showExitMA ? exitMA : na, "Exit MA", color=color.new(color.orange, 0), linewidth=1)
+
+// Background: green when long conditions forming, red when short
+bgcolor(close > trendMA and rsiVal < rsiOS * 1.5 ? color.new(color.green, 90) : na)
+bgcolor(close < trendMA and rsiVal > rsiOB - (100 - rsiOB) * 0.5 ? color.new(color.red, 90) : na)
+
+// FTMO breach warning
+bgcolor(ftmoBreached ? color.new(color.red, 70) : na)
+bgcolor(dailyLossBreached ? color.new(color.orange, 80) : na)
+
+// Entry markers
+plotshape(longCond, "Long Entry", shape.triangleup, location.belowbar, color.green, size=size.small)
+plotshape(shortCond, "Short Entry", shape.triangledown, location.abovebar, color.red, size=size.small)
+
+// ============================================================
+// SECTION 8: ALERTS
+// ============================================================
+
+alertcondition(longCond, "RSI2 Long Entry", "RSI2: Long entry signal")
+alertcondition(shortCond, "RSI2 Short Entry", "RSI2: Short entry signal")
+alertcondition(ftmoBreached, "FTMO Breached", "FTMO: Max drawdown breached - stop trading")
+alertcondition(dailyLossBreached, "Daily Loss Limit", "FTMO: Daily loss limit hit")

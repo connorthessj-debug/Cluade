@@ -50,6 +50,10 @@ DEFAULT_PARAMS = {
     "point_value": 2.0,
     "spread": 0.0,
     "min_volume": 0,
+    # FTMO
+    "account_balance": 10000,
+    "max_daily_loss_pct": 5.0,
+    "max_total_dd_pct": 10.0,
 }
 
 
@@ -134,6 +138,13 @@ class SMCState:
     trail_activated: bool = False
     trail_stop: float = np.nan
 
+    # FTMO tracking
+    daily_pnl: float = 0.0
+    total_pnl: float = 0.0
+    peak_equity: float = 0.0
+    ftmo_breached: bool = False
+    daily_loss_breached: bool = False
+
 
 class SMCEngine:
     """Processes OHLCV data bar-by-bar applying SMC logic."""
@@ -141,6 +152,7 @@ class SMCEngine:
     def __init__(self, params: dict = None):
         self.p = {**DEFAULT_PARAMS, **(params or {})}
         self.state = SMCState()
+        self.state.peak_equity = self.p["account_balance"]
         self.trades: list[Trade] = []
         self._highs = []
         self._lows = []
@@ -158,6 +170,7 @@ class SMCEngine:
     def reset(self):
         """Reset engine state for a new run."""
         self.state = SMCState()
+        self.state.peak_equity = self.p["account_balance"]
         self.trades = []
         self._highs = []
         self._lows = []
@@ -190,14 +203,23 @@ class SMCEngine:
         bar_date = timestamp.date() if hasattr(timestamp, 'date') else None
         if bar_date and bar_date != s.current_date:
             s.daily_trade_count = 0
+            s.daily_pnl = 0.0
+            s.daily_loss_breached = False
             s.current_date = bar_date
+
+        # FTMO total drawdown check
+        if s.ftmo_breached:
+            self._bar_idx += 1
+            return {"action": "none", "bar": idx, "reason": "ftmo_breached"}
 
         # Update ATR
         self._update_atr(idx)
 
         # Session filter
         in_session = self._in_session(timestamp)
-        can_trade = in_session and s.daily_trade_count < self.p["maxDailyTrades"]
+        can_trade = (in_session
+                     and s.daily_trade_count < self.p["maxDailyTrades"]
+                     and not s.daily_loss_breached)
 
         # Detect swing points
         self._detect_swings(idx)
@@ -737,6 +759,18 @@ class SMCEngine:
             s.position = 0
             s.trail_activated = False
             s.trail_stop = np.nan
+
+            # FTMO tracking
+            s.daily_pnl += pnl
+            s.total_pnl += pnl
+            balance = self.p["account_balance"]
+            if s.daily_pnl <= -(balance * self.p["max_daily_loss_pct"] / 100):
+                s.daily_loss_breached = True
+            current_equity = balance + s.total_pnl
+            if current_equity > s.peak_equity:
+                s.peak_equity = current_equity
+            if s.peak_equity - current_equity >= balance * self.p["max_total_dd_pct"] / 100:
+                s.ftmo_breached = True
 
             return {"action": f"{exit_reason}_exit", "bar": idx,
                     "price": exit_price, "pnl": pnl, "r_multiple": r_mult}
