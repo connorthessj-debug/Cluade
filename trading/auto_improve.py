@@ -525,7 +525,7 @@ def _build_fine_grid(seed_params: dict) -> dict:
 
 def refine(data: pd.DataFrame, seed_params: dict = None,
            seed_results: list = None, top_n: int = 3,
-           output_dir: str = None) -> dict:
+           output_dir: str = None, engine_type: str = "smc") -> dict:
     """
     Fine-grained refinement search around top parameter sets.
 
@@ -584,7 +584,7 @@ def refine(data: pd.DataFrame, seed_params: dict = None,
 
     # Baseline
     print(f"Refining around {len(seeds)} seed(s), {total} fine-grained combinations...")
-    baseline = run_backtest(data, seeds[0])
+    baseline = run_backtest(data, seeds[0], engine_type=engine_type)
     baseline_score = _objective(baseline["metrics"])
     print(f"  Seed baseline: {baseline['metrics']['total_trades']} trades, "
           f"Sharpe={baseline['metrics']['sharpe_ratio']:.4f}, "
@@ -602,7 +602,7 @@ def refine(data: pd.DataFrame, seed_params: dict = None,
                 params[k] = v
         params.update(combo)
 
-        result = run_backtest(data, params)
+        result = run_backtest(data, params, engine_type=engine_type)
         score = _objective(result["metrics"])
 
         if score > best_score:
@@ -712,7 +712,8 @@ def loop_until_profitable(data: pd.DataFrame, output_dir: str = None,
         # Phase 2: Refine top results on train data
         print(f"\n--- Phase 2: Refinement on train data ---")
         refined = refine(train_data, seed_results=opt_result["all_results"],
-                         top_n=1, output_dir=output_dir)
+                         top_n=1, output_dir=output_dir,
+                         engine_type=engine_type)
 
         # Phase 3: Validate on TEST data (out-of-sample)
         print(f"\n--- Phase 3: Out-of-sample validation ---")
