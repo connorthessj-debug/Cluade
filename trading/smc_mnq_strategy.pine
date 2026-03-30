@@ -1,0 +1,585 @@
+// ============================================================
+// SMC AI Trading Agent — Mini Nasdaq Futures (MNQ)
+// Smart Money Concepts Strategy v1.0
+// Auto-improved by Claude Code scheduled agent
+// ============================================================
+// TRADE_COUNT: 0
+// LAST_UPDATE: 2026-03-29
+// VERSION: 1.0.0
+// ============================================================
+
+//@version=5
+strategy("SMC MNQ Agent v1.0",
+     overlay        = true,
+     pyramiding     = 1,
+     default_qty_type = strategy.fixed,
+     default_qty_value = 1,
+     slippage       = 2,
+     commission_type  = strategy.commission.cash_per_contract,
+     commission_value = 0.62,
+     calc_on_every_tick = false,
+     max_boxes_count  = 200,
+     max_labels_count = 200,
+     max_lines_count  = 200)
+
+// ============================================================
+// SECTION 0: INPUT PARAMETERS
+// ============================================================
+
+// --- Market Structure ---
+grpMS = "Market Structure"
+swingLen      = input.int(5,     "Swing Lookback Length",   minval=2, maxval=20,  group=grpMS)
+structureLen  = input.int(50,    "Structure Lookback Bars", minval=10, maxval=200, group=grpMS)
+
+// --- Order Blocks ---
+grpOB = "Order Blocks"
+obMaxAge      = input.int(100,   "OB Max Age (bars)",       minval=10, maxval=500, group=grpOB)
+obMitigateBody = input.bool(true, "Mitigate on Body Close",              group=grpOB)
+obMaxCount    = input.int(10,    "Max Active OBs",          minval=1,  maxval=20,  group=grpOB)
+
+// --- Fair Value Gaps ---
+grpFVG = "Fair Value Gaps"
+fvgEnabled    = input.bool(true, "Enable FVG Detection",                group=grpFVG)
+fvgMinSize    = input.float(0.5, "Min FVG Size (points)",   minval=0.25, step=0.25, group=grpFVG)
+fvgMaxAge     = input.int(50,    "FVG Max Age (bars)",      minval=5,  maxval=200, group=grpFVG)
+
+// --- Liquidity ---
+grpLQ = "Liquidity"
+liqEnabled    = input.bool(true, "Enable Liquidity Sweeps",             group=grpLQ)
+eqTolerance   = input.float(0.1, "Equal H/L Tolerance (%)", minval=0.01, maxval=0.5, step=0.01, group=grpLQ)
+liqLookback   = input.int(20,    "Liquidity Lookback",      minval=5,  maxval=100, group=grpLQ)
+
+// --- Premium / Discount ---
+grpPD = "Premium / Discount"
+pdLookback    = input.int(50,    "P/D Range Lookback",      minval=10, maxval=200, group=grpPD)
+
+// --- Higher Timeframe ---
+grpHTF = "Higher Timeframe Bias"
+htfTimeframe  = input.timeframe("240", "HTF Timeframe",                 group=grpHTF)
+htfSwingLen   = input.int(5,     "HTF Swing Lookback",     minval=2,  maxval=20,  group=grpHTF)
+
+// --- Risk Management ---
+grpRM = "Risk Management"
+atrPeriod     = input.int(14,    "ATR Period",              minval=5,  maxval=50,  group=grpRM)
+atrSlMult     = input.float(1.5, "ATR Stop Loss Multiplier", minval=0.5, maxval=5.0, step=0.1, group=grpRM)
+rrRatio       = input.float(2.0, "Risk:Reward Ratio",       minval=1.0, maxval=10.0, step=0.5, group=grpRM)
+useTrailing   = input.bool(true, "Enable Trailing Stop",                group=grpRM)
+trailAfterR   = input.float(1.0, "Trail After R Multiple",  minval=0.5, maxval=5.0, step=0.5, group=grpRM)
+
+// --- Session Filter ---
+grpSess = "Session Filter"
+sessEnabled   = input.bool(true, "Filter by Session",                   group=grpSess)
+sessStart     = input.session("0930-1600", "Trading Session (ET)",      group=grpSess)
+maxDailyTrades = input.int(3,    "Max Daily Trades",        minval=1,  maxval=20,  group=grpSess)
+
+// --- Visual ---
+grpVis = "Visual Settings"
+showOB        = input.bool(true, "Show Order Blocks",                   group=grpVis)
+showFVG       = input.bool(true, "Show Fair Value Gaps",                group=grpVis)
+showStructure = input.bool(true, "Show BOS/CHoCH Labels",              group=grpVis)
+showPD        = input.bool(true, "Show Premium/Discount BG",           group=grpVis)
+showHTFBias   = input.bool(true, "Show HTF Bias Arrow",                group=grpVis)
+
+// ============================================================
+// SECTION 1: HELPER FUNCTIONS
+// ============================================================
+
+atr = ta.atr(atrPeriod)
+
+isInSession() =>
+    not sessEnabled or not na(time(timeframe.period, sessStart, "America/New_York"))
+
+var int dailyTradeCount = 0
+if dayofweek != dayofweek[1]
+    dailyTradeCount := 0
+
+canTrade() =>
+    isInSession() and dailyTradeCount < maxDailyTrades
+
+// ============================================================
+// SECTION 2: MARKET STRUCTURE DETECTION
+// ============================================================
+
+// Swing High/Low detection
+swHigh = ta.pivothigh(high, swingLen, swingLen)
+swLow  = ta.pivotlow(low, swingLen, swingLen)
+
+// Track swing points
+var float lastSwingHigh   = na
+var float lastSwingLow    = na
+var float prevSwingHigh   = na
+var float prevSwingLow    = na
+var int   lastSwHighBar   = na
+var int   lastSwLowBar    = na
+
+// Trend state: 1 = bullish, -1 = bearish, 0 = neutral
+var int trend = 0
+
+// Structure break signals (offset by swingLen since pivots confirm late)
+var bool bosUp   = false
+var bool bosDn   = false
+var bool chochUp = false
+var bool chochDn = false
+
+bosUp   := false
+bosDn   := false
+chochUp := false
+chochDn := false
+
+// Register new swing highs
+if not na(swHigh)
+    prevSwingHigh := lastSwingHigh
+    lastSwingHigh := swHigh
+    lastSwHighBar := bar_index - swingLen
+
+// Register new swing lows
+if not na(swLow)
+    prevSwingLow := lastSwingLow
+    lastSwingLow := swLow
+    lastSwLowBar := bar_index - swingLen
+
+// Detect Break of Structure and Change of Character
+if not na(lastSwingHigh) and not na(lastSwingLow)
+    // Bullish BOS: close breaks above last swing high in an uptrend
+    if close > lastSwingHigh and trend >= 0
+        bosUp := true
+        trend := 1
+    // Bearish BOS: close breaks below last swing low in a downtrend
+    if close < lastSwingLow and trend <= 0
+        bosDn := true
+        trend := -1
+    // Bullish CHoCH: close breaks above last swing high in a DOWNTREND (trend change)
+    if close > lastSwingHigh and trend == -1
+        chochUp := true
+        trend   := 1
+    // Bearish CHoCH: close breaks below last swing low in an UPTREND (trend change)
+    if close < lastSwingLow and trend == 1
+        chochDn := true
+        trend   := -1
+
+// ============================================================
+// SECTION 3: ORDER BLOCK DETECTION
+// ============================================================
+
+// Arrays to store active order blocks
+var array<float> obTopArr    = array.new_float(0)
+var array<float> obBotArr    = array.new_float(0)
+var array<int>   obBarArr    = array.new_int(0)
+var array<int>   obDirArr    = array.new_int(0)   // 1=bullish, -1=bearish
+var array<bool>  obActiveArr = array.new_bool(0)
+var array<box>   obBoxArr    = array.new_box(0)
+
+// Find last bearish candle before bullish BOS → Bullish OB
+if bosUp or chochUp
+    // Scan backwards for the last bearish candle
+    for i = 1 to 10
+        if close[i] < open[i]
+            obTop  = high[i]
+            obBot  = low[i]
+            obBar  = bar_index - i
+
+            // Limit active OB count
+            if array.size(obTopArr) >= obMaxCount
+                oldBox = array.shift(obBoxArr)
+                box.delete(oldBox)
+                array.shift(obTopArr)
+                array.shift(obBotArr)
+                array.shift(obBarArr)
+                array.shift(obDirArr)
+                array.shift(obActiveArr)
+
+            array.push(obTopArr, obTop)
+            array.push(obBotArr, obBot)
+            array.push(obBarArr, obBar)
+            array.push(obDirArr, 1)
+            array.push(obActiveArr, true)
+
+            bx = showOB ? box.new(obBar, obTop, bar_index, obBot, border_color=color.new(color.green, 60), bgcolor=color.new(color.green, 85)) : na
+            array.push(obBoxArr, bx)
+            break
+
+// Find last bullish candle before bearish BOS → Bearish OB
+if bosDn or chochDn
+    for i = 1 to 10
+        if close[i] > open[i]
+            obTop  = high[i]
+            obBot  = low[i]
+            obBar  = bar_index - i
+
+            if array.size(obTopArr) >= obMaxCount
+                oldBox = array.shift(obBoxArr)
+                box.delete(oldBox)
+                array.shift(obTopArr)
+                array.shift(obBotArr)
+                array.shift(obBarArr)
+                array.shift(obDirArr)
+                array.shift(obActiveArr)
+
+            array.push(obTopArr, obTop)
+            array.push(obBotArr, obBot)
+            array.push(obBarArr, obBar)
+            array.push(obDirArr, -1)
+            array.push(obActiveArr, true)
+
+            bx = showOB ? box.new(obBar, obTop, bar_index, obBot, border_color=color.new(color.red, 60), bgcolor=color.new(color.red, 85)) : na
+            array.push(obBoxArr, bx)
+            break
+
+// Mitigate order blocks when price trades through them
+if array.size(obTopArr) > 0
+    for i = array.size(obTopArr) - 1 to 0
+        if i < array.size(obActiveArr) and array.get(obActiveArr, i)
+            obDir  = array.get(obDirArr, i)
+            obTop  = array.get(obTopArr, i)
+            obBot  = array.get(obBotArr, i)
+            obAge  = bar_index - array.get(obBarArr, i)
+
+            mitigated = false
+
+            // Bullish OB mitigated when price closes below its low
+            if obDir == 1
+                mitigated := obMitigateBody ? close < obBot : low < obBot
+
+            // Bearish OB mitigated when price closes above its high
+            if obDir == -1
+                mitigated := obMitigateBody ? close > obTop : high > obTop
+
+            // Also expire by age
+            if obAge > obMaxAge
+                mitigated := true
+
+            if mitigated
+                array.set(obActiveArr, i, false)
+                bx = array.get(obBoxArr, i)
+                if not na(bx)
+                    box.set_bgcolor(bx, color.new(color.gray, 90))
+                    box.set_border_color(bx, color.new(color.gray, 80))
+
+        // Extend active OB boxes to current bar
+        else if i < array.size(obActiveArr) and array.get(obActiveArr, i)
+            bx = array.get(obBoxArr, i)
+            if not na(bx)
+                box.set_right(bx, bar_index)
+
+// ============================================================
+// SECTION 4: FAIR VALUE GAP DETECTION
+// ============================================================
+
+var array<float> fvgTopArr    = array.new_float(0)
+var array<float> fvgBotArr    = array.new_float(0)
+var array<int>   fvgBarArr    = array.new_int(0)
+var array<int>   fvgDirArr    = array.new_int(0)
+var array<bool>  fvgActiveArr = array.new_bool(0)
+var array<box>   fvgBoxArr    = array.new_box(0)
+
+if fvgEnabled
+    // Bullish FVG: current low > 2 bars ago high (gap up)
+    bullFVG = low > high[2] and (low - high[2]) >= fvgMinSize
+    // Bearish FVG: current high < 2 bars ago low (gap down)
+    bearFVG = high < low[2] and (low[2] - high) >= fvgMinSize
+
+    if bullFVG
+        fTop = low
+        fBot = high[2]
+        array.push(fvgTopArr, fTop)
+        array.push(fvgBotArr, fBot)
+        array.push(fvgBarArr, bar_index - 1)
+        array.push(fvgDirArr, 1)
+        array.push(fvgActiveArr, true)
+        bx = showFVG ? box.new(bar_index - 2, fTop, bar_index, fBot, border_color=color.new(color.teal, 70), bgcolor=color.new(color.teal, 88)) : na
+        array.push(fvgBoxArr, bx)
+
+    if bearFVG
+        fTop = low[2]
+        fBot = high
+        array.push(fvgTopArr, fTop)
+        array.push(fvgBotArr, fBot)
+        array.push(fvgBarArr, bar_index - 1)
+        array.push(fvgDirArr, -1)
+        array.push(fvgActiveArr, true)
+        bx = showFVG ? box.new(bar_index - 2, fTop, bar_index, fBot, border_color=color.new(color.orange, 70), bgcolor=color.new(color.orange, 88)) : na
+        array.push(fvgBoxArr, bx)
+
+    // Fill / expire FVGs
+    if array.size(fvgTopArr) > 0
+        for i = array.size(fvgTopArr) - 1 to 0
+            if i < array.size(fvgActiveArr) and array.get(fvgActiveArr, i)
+                fDir  = array.get(fvgDirArr, i)
+                fTop2 = array.get(fvgTopArr, i)
+                fBot2 = array.get(fvgBotArr, i)
+                fAge  = bar_index - array.get(fvgBarArr, i)
+
+                filled = false
+                // Bullish FVG filled when price drops into it
+                if fDir == 1 and low <= fBot2
+                    filled := true
+                // Bearish FVG filled when price rises into it
+                if fDir == -1 and high >= fTop2
+                    filled := true
+                if fAge > fvgMaxAge
+                    filled := true
+
+                if filled
+                    array.set(fvgActiveArr, i, false)
+                    bx = array.get(fvgBoxArr, i)
+                    if not na(bx)
+                        box.set_bgcolor(bx, color.new(color.gray, 95))
+                else
+                    bx = array.get(fvgBoxArr, i)
+                    if not na(bx)
+                        box.set_right(bx, bar_index)
+
+// ============================================================
+// SECTION 5: LIQUIDITY SWEEP DETECTION
+// ============================================================
+
+var bool bullSweep = false
+var bool bearSweep = false
+bullSweep := false
+bearSweep := false
+
+if liqEnabled
+    // Detect equal highs (liquidity pool above)
+    eqHighFound = false
+    eqHighLevel = 0.0
+    for i = 1 to liqLookback
+        if not na(swHigh) and not na(ta.pivothigh(high, swingLen, swingLen)[i])
+            prevPivH = ta.pivothigh(high, swingLen, swingLen)[i]
+            if not na(prevPivH)
+                tolerance = prevPivH * eqTolerance / 100
+                if math.abs(swHigh - prevPivH) <= tolerance
+                    eqHighFound := true
+                    eqHighLevel := math.max(swHigh, prevPivH)
+                    break
+
+    // Detect equal lows (liquidity pool below)
+    eqLowFound = false
+    eqLowLevel = 0.0
+    for i = 1 to liqLookback
+        if not na(swLow) and not na(ta.pivotlow(low, swingLen, swingLen)[i])
+            prevPivL = ta.pivotlow(low, swingLen, swingLen)[i]
+            if not na(prevPivL)
+                tolerance = prevPivL * eqTolerance / 100
+                if math.abs(swLow - prevPivL) <= tolerance
+                    eqLowFound := true
+                    eqLowLevel := math.min(swLow, prevPivL)
+                    break
+
+    // Bullish sweep: price wicks below equal lows then closes above
+    if eqLowFound and low < eqLowLevel and close > eqLowLevel
+        bullSweep := true
+
+    // Bearish sweep: price wicks above equal highs then closes below
+    if eqHighFound and high > eqHighLevel and close < eqHighLevel
+        bearSweep := true
+
+// ============================================================
+// SECTION 6: PREMIUM / DISCOUNT ZONES
+// ============================================================
+
+rangeHigh = ta.highest(high, pdLookback)
+rangeLow  = ta.lowest(low, pdLookback)
+equilibrium = (rangeHigh + rangeLow) / 2
+
+inPremium  = close > equilibrium
+inDiscount = close < equilibrium
+
+// Background coloring for premium/discount
+bgcolor(showPD and inPremium  ? color.new(color.red, 95) : na, title="Premium Zone")
+bgcolor(showPD and inDiscount ? color.new(color.green, 95) : na, title="Discount Zone")
+
+// Equilibrium line
+plot(showPD ? equilibrium : na, "Equilibrium", color=color.new(color.gray, 50), style=plot.style_cross)
+
+// ============================================================
+// SECTION 7: HIGHER TIMEFRAME BIAS
+// ============================================================
+
+// Get HTF swing data
+htfHigh = request.security(syminfo.tickerid, htfTimeframe, ta.pivothigh(high, htfSwingLen, htfSwingLen), lookahead=barmerge.lookahead_off)
+htfLow  = request.security(syminfo.tickerid, htfTimeframe, ta.pivotlow(low, htfSwingLen, htfSwingLen),   lookahead=barmerge.lookahead_off)
+htfClose = request.security(syminfo.tickerid, htfTimeframe, close, lookahead=barmerge.lookahead_off)
+
+var float htfLastSwHigh = na
+var float htfLastSwLow  = na
+var int   htfTrend      = 0
+
+if not na(htfHigh)
+    htfLastSwHigh := htfHigh
+if not na(htfLow)
+    htfLastSwLow := htfLow
+
+// HTF trend determination
+if not na(htfLastSwHigh) and not na(htfLastSwLow)
+    if htfClose > htfLastSwHigh
+        htfTrend := 1
+    if htfClose < htfLastSwLow
+        htfTrend := -1
+
+htfBullish = htfTrend >= 1
+htfBearish = htfTrend <= -1
+
+// HTF bias arrow
+plotshape(showHTFBias and htfBullish ? low - atr * 0.5 : na, "HTF Bull", shape.triangleup,   location.absolute, color.new(color.green, 40), size=size.tiny)
+plotshape(showHTFBias and htfBearish ? high + atr * 0.5 : na, "HTF Bear", shape.triangledown, location.absolute, color.new(color.red, 40),   size=size.tiny)
+
+// ============================================================
+// SECTION 8: ENTRY LOGIC
+// ============================================================
+
+// Check if price is touching an active order block
+priceInBullOB = false
+priceInBearOB = false
+entryOBTop    = 0.0
+entryOBBot    = 0.0
+
+if array.size(obTopArr) > 0
+    for i = 0 to array.size(obTopArr) - 1
+        if array.get(obActiveArr, i)
+            dir = array.get(obDirArr, i)
+            top = array.get(obTopArr, i)
+            bot = array.get(obBotArr, i)
+            if dir == 1 and low <= top and close >= bot
+                priceInBullOB := true
+                entryOBTop    := top
+                entryOBBot    := bot
+            if dir == -1 and high >= bot and close <= top
+                priceInBearOB := true
+                entryOBTop    := top
+                entryOBBot    := bot
+
+// Check if price is touching an active FVG
+priceInBullFVG = false
+priceInBearFVG = false
+entryFVGTop    = 0.0
+entryFVGBot    = 0.0
+
+if fvgEnabled and array.size(fvgTopArr) > 0
+    for i = 0 to array.size(fvgTopArr) - 1
+        if i < array.size(fvgActiveArr) and array.get(fvgActiveArr, i)
+            dir = array.get(fvgDirArr, i)
+            top = array.get(fvgTopArr, i)
+            bot = array.get(fvgBotArr, i)
+            if dir == 1 and low <= top and close >= bot
+                priceInBullFVG := true
+                entryFVGTop    := top
+                entryFVGBot    := bot
+            if dir == -1 and high >= bot and close <= top
+                priceInBearFVG := true
+                entryFVGTop    := top
+                entryFVGBot    := bot
+
+// ---- LONG ENTRY CONDITIONS ----
+longCondition = true
+longCondition := longCondition and htfBullish                          // 1. HTF bias bullish
+longCondition := longCondition and (trend == 1)                        // 2. Current structure bullish
+longCondition := longCondition and inDiscount                          // 3. Price in discount zone
+longCondition := longCondition and (priceInBullOB or priceInBullFVG)   // 4. Price at OB or FVG
+longCondition := longCondition and canTrade()                          // 5. Within session & trade limit
+// Optional: liquidity sweep adds confluence but is not required
+longWithSweep = longCondition and bullSweep
+
+// ---- SHORT ENTRY CONDITIONS ----
+shortCondition = true
+shortCondition := shortCondition and htfBearish                         // 1. HTF bias bearish
+shortCondition := shortCondition and (trend == -1)                      // 2. Current structure bearish
+shortCondition := shortCondition and inPremium                          // 3. Price in premium zone
+shortCondition := shortCondition and (priceInBearOB or priceInBearFVG)  // 4. Price at OB or FVG
+shortCondition := shortCondition and canTrade()                         // 5. Within session & trade limit
+shortWithSweep = shortCondition and bearSweep
+
+// ============================================================
+// SECTION 9: RISK MANAGEMENT
+// ============================================================
+
+// Calculate stop loss and take profit levels
+var float longSL  = na
+var float longTP  = na
+var float shortSL = na
+var float shortTP = na
+
+// Execute long entry
+if longCondition and strategy.position_size == 0
+    // SL below the OB/FVG low minus ATR buffer
+    refBot  = priceInBullOB ? entryOBBot : entryFVGBot
+    slDist  = math.max(close - refBot, atr * atrSlMult)
+    longSL  := close - slDist
+    longTP  := close + (slDist * rrRatio)
+
+    strategy.entry("Long", strategy.long)
+    dailyTradeCount += 1
+
+    if useTrailing
+        trailOffset = math.round(slDist * trailAfterR / syminfo.mintick)
+        trailPoints = math.round(slDist / syminfo.mintick)
+        strategy.exit("Long Exit", "Long", stop=longSL, limit=longTP, trail_offset=trailOffset, trail_points=trailPoints)
+    else
+        strategy.exit("Long Exit", "Long", stop=longSL, limit=longTP)
+
+// Execute short entry
+if shortCondition and strategy.position_size == 0
+    refTop  = priceInBearOB ? entryOBTop : entryFVGTop
+    slDist  = math.max(refTop - close, atr * atrSlMult)
+    shortSL := close + slDist
+    shortTP := close - (slDist * rrRatio)
+
+    strategy.entry("Short", strategy.short)
+    dailyTradeCount += 1
+
+    if useTrailing
+        trailOffset = math.round(slDist * trailAfterR / syminfo.mintick)
+        trailPoints = math.round(slDist / syminfo.mintick)
+        strategy.exit("Short Exit", "Short", stop=shortSL, limit=shortTP, trail_offset=trailOffset, trail_points=trailPoints)
+    else
+        strategy.exit("Short Exit", "Short", stop=shortSL, limit=shortTP)
+
+// ============================================================
+// SECTION 10: VISUAL OVERLAYS
+// ============================================================
+
+// BOS / CHoCH labels
+if showStructure
+    if bosUp
+        label.new(bar_index, low, "BOS+", style=label.style_label_up, color=color.green, textcolor=color.white, size=size.small)
+    if bosDn
+        label.new(bar_index, high, "BOS-", style=label.style_label_down, color=color.red, textcolor=color.white, size=size.small)
+    if chochUp
+        label.new(bar_index, low, "CHoCH+", style=label.style_label_up, color=color.lime, textcolor=color.black, size=size.normal)
+    if chochDn
+        label.new(bar_index, high, "CHoCH-", style=label.style_label_down, color=color.maroon, textcolor=color.white, size=size.normal)
+
+// Liquidity sweep markers
+plotshape(liqEnabled and bullSweep ? low - atr * 0.3 : na, "Bull Sweep", shape.diamond, location.absolute, color.new(color.aqua, 20), size=size.small)
+plotshape(liqEnabled and bearSweep ? high + atr * 0.3 : na, "Bear Sweep", shape.diamond, location.absolute, color.new(color.fuchsia, 20), size=size.small)
+
+// SL / TP lines for active position
+plot(strategy.position_size > 0 ? longSL : na,  "Long SL",  color.red,   2, plot.style_linebr)
+plot(strategy.position_size > 0 ? longTP : na,  "Long TP",  color.green, 2, plot.style_linebr)
+plot(strategy.position_size < 0 ? shortSL : na, "Short SL", color.red,   2, plot.style_linebr)
+plot(strategy.position_size < 0 ? shortTP : na, "Short TP", color.green, 2, plot.style_linebr)
+
+// ============================================================
+// SECTION 11: ALERT CONDITIONS
+// ============================================================
+
+if longCondition and strategy.position_size == 0
+    alert("SMC LONG ENTRY on MNQ | Price: " + str.tostring(close) + " | SL: " + str.tostring(longSL, "#.##") + " | TP: " + str.tostring(longTP, "#.##"), alert.freq_once_per_bar_close)
+
+if shortCondition and strategy.position_size == 0
+    alert("SMC SHORT ENTRY on MNQ | Price: " + str.tostring(close) + " | SL: " + str.tostring(shortSL, "#.##") + " | TP: " + str.tostring(shortTP, "#.##"), alert.freq_once_per_bar_close)
+
+if chochUp
+    alert("SMC: Bullish CHoCH detected on MNQ at " + str.tostring(close), alert.freq_once_per_bar_close)
+
+if chochDn
+    alert("SMC: Bearish CHoCH detected on MNQ at " + str.tostring(close), alert.freq_once_per_bar_close)
+
+if bullSweep
+    alert("SMC: Bullish liquidity sweep on MNQ at " + str.tostring(close), alert.freq_once_per_bar_close)
+
+if bearSweep
+    alert("SMC: Bearish liquidity sweep on MNQ at " + str.tostring(close), alert.freq_once_per_bar_close)
+
+// ============================================================
+// END OF STRATEGY
+// ============================================================
