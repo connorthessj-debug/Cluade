@@ -264,6 +264,34 @@ def _update_changelog(path: str, baseline_metrics: dict, opt_metrics: dict,
         f.write(new_content)
 
 
+def _save_profitable_snapshot(output_dir: str, params: dict, metrics: dict,
+                              iteration: int):
+    """Save a profitable parameter set as profitable_smcV1."""
+    snapshot_dir = os.path.join(output_dir, "profitable_smcV1")
+    os.makedirs(snapshot_dir, exist_ok=True)
+
+    snapshot = {
+        "version": "profitable_smcV1",
+        "found_at_iteration": iteration,
+        "found_at": datetime.now().isoformat(),
+        "params": params,
+        "metrics": {
+            "sharpe_ratio": metrics["sharpe_ratio"],
+            "net_pnl": metrics["net_pnl"],
+            "win_rate": metrics["win_rate"],
+            "profit_factor": metrics["profit_factor"],
+            "total_trades": metrics["total_trades"],
+            "max_drawdown_pct": metrics["max_drawdown_pct"],
+        },
+    }
+
+    path = os.path.join(snapshot_dir, "profitable_smcV1.json")
+    with open(path, "w") as f:
+        json.dump(snapshot, f, indent=2)
+
+    print(f"  Profitable snapshot saved to: {path}")
+
+
 # Fine-grained refinement steps around a seed parameter set
 # Wide range + fine steps for maximum precision (~13k combos per seed)
 REFINE_STEPS = {
@@ -503,10 +531,16 @@ def loop_until_profitable(data: pd.DataFrame, output_dir: str = None,
             print(f"  Net P&L: ${metrics['net_pnl']:.2f}")
             print(f"  Win Rate: {metrics['win_rate']:.2f}%")
             print(f"  Profit Factor: {metrics['profit_factor']:.4f}")
-            return best_overall
 
-    print(f"\n  Max iterations reached. Best Sharpe: "
-          f"{best_overall['best']['metrics']['sharpe_ratio']:.4f}")
+            # Save profitable snapshot as profitable_smcV1
+            _save_profitable_snapshot(output_dir, refined["best_params"],
+                                      metrics, iteration + 1)
+
+            # Keep looping to improve further
+            print(f"\n  Snapshot saved as profitable_smcV1. Continuing optimization...")
+
+    print(f"\n  Optimization complete ({max_iterations} iterations). "
+          f"Best Sharpe: {best_overall['best']['metrics']['sharpe_ratio']:.4f}")
     return best_overall
 
 
