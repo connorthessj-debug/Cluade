@@ -11,6 +11,8 @@ INSTRUMENTS = {
         "point_value": 2.0,
         "commission": 0.62,
         "slippage_ticks": 2,
+        "spread": 0.25,
+        "min_volume": 0,
         "sessStartHour": 9,
         "sessStartMin": 30,
         "sessEndHour": 16,
@@ -23,6 +25,8 @@ INSTRUMENTS = {
         "point_value": 10.0,
         "commission": 1.25,
         "slippage_ticks": 2,
+        "spread": 0.30,
+        "min_volume": 0,
         "sessStartHour": 8,
         "sessStartMin": 0,
         "sessEndHour": 17,
@@ -35,6 +39,8 @@ INSTRUMENTS = {
         "point_value": 12.5,
         "commission": 1.18,
         "slippage_ticks": 1,
+        "spread": 0.25,
+        "min_volume": 0,
         "sessStartHour": 9,
         "sessStartMin": 30,
         "sessEndHour": 16,
@@ -47,6 +53,8 @@ INSTRUMENTS = {
         "point_value": 10.0,
         "commission": 1.25,
         "slippage_ticks": 2,
+        "spread": 0.03,
+        "min_volume": 0,
         "sessStartHour": 9,
         "sessStartMin": 0,
         "sessEndHour": 14,
@@ -59,6 +67,8 @@ INSTRUMENTS = {
         "point_value": 100000.0,
         "commission": 0.50,
         "slippage_ticks": 1,
+        "spread": 0.00010,
+        "min_volume": 0,
         "sessStartHour": 8,
         "sessStartMin": 0,
         "sessEndHour": 17,
@@ -71,6 +81,8 @@ INSTRUMENTS = {
         "point_value": 5.0,
         "commission": 5.00,
         "slippage_ticks": 1,
+        "spread": 15.0,
+        "min_volume": 0,
         "sessStartHour": 0,
         "sessStartMin": 0,
         "sessEndHour": 23,
@@ -153,6 +165,8 @@ def get_params(instrument: str, style: str = "smc_swing") -> dict:
     params["point_value"] = inst["point_value"]
     params["commission"] = inst["commission"]
     params["slippage_ticks"] = inst["slippage_ticks"]
+    params["spread"] = inst.get("spread", 0.0)
+    params["min_volume"] = inst.get("min_volume", 0)
     params["sessStartHour"] = inst["sessStartHour"]
     params["sessStartMin"] = inst["sessStartMin"]
     params["sessEndHour"] = inst["sessEndHour"]

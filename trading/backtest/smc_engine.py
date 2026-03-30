@@ -48,6 +48,8 @@ DEFAULT_PARAMS = {
     "tick_size": 0.25,
     "commission": 0.62,
     "point_value": 2.0,
+    "spread": 0.0,
+    "min_volume": 0,
 }
 
 
@@ -145,7 +147,13 @@ class SMCEngine:
         self._closes = []
         self._opens = []
         self._timestamps = []
+        self._volumes = []
         self._bar_idx = 0
+        self.skipped_trades = 0
+
+    def _fill_cost(self) -> float:
+        """Total per-side fill cost: half spread + slippage."""
+        return self.p["spread"] / 2 + self.p["slippage_ticks"] * self.p["tick_size"]
 
     def reset(self):
         """Reset engine state for a new run."""
@@ -156,9 +164,12 @@ class SMCEngine:
         self._closes = []
         self._opens = []
         self._timestamps = []
+        self._volumes = []
         self._bar_idx = 0
+        self.skipped_trades = 0
 
-    def process_bar(self, timestamp, o: float, h: float, l: float, c: float) -> dict:
+    def process_bar(self, timestamp, o: float, h: float, l: float, c: float,
+                    volume: float = 0.0) -> dict:
         """
         Process a single OHLCV bar. Returns signal info dict.
         """
@@ -167,6 +178,7 @@ class SMCEngine:
         self._highs.append(h)
         self._lows.append(l)
         self._closes.append(c)
+        self._volumes.append(volume)
         idx = self._bar_idx
         s = self.state
 
@@ -549,6 +561,12 @@ class SMCEngine:
         s = self.state
         p = self.p
 
+        # Volume filter — skip if below minimum
+        min_vol = p.get("min_volume", 0)
+        if min_vol > 0 and idx < len(self._volumes) and self._volumes[idx] < min_vol:
+            self.skipped_trades += 1
+            return None
+
         # Price in active bullish OB or FVG
         in_bull_ob = False
         ob_bot = 0.0
@@ -607,7 +625,7 @@ class SMCEngine:
             tp = c + sl_dist * p["rrRatio"]
 
             # Apply slippage
-            entry_price = c + p["slippage_ticks"] * p["tick_size"]
+            entry_price = c + self._fill_cost()
 
             trade = Trade(
                 entry_bar=idx,
@@ -632,7 +650,7 @@ class SMCEngine:
             sl = c + sl_dist
             tp = c - sl_dist * p["rrRatio"]
 
-            entry_price = c - p["slippage_ticks"] * p["tick_size"]
+            entry_price = c - self._fill_cost()
 
             trade = Trade(
                 entry_bar=idx,
@@ -665,11 +683,11 @@ class SMCEngine:
         if trade.direction == 1:  # Long
             # Check stop loss
             if l <= trade.stop_loss:
-                exit_price = trade.stop_loss - p["slippage_ticks"] * p["tick_size"]
+                exit_price = trade.stop_loss - self._fill_cost()
                 exit_reason = "stop_loss"
             # Check take profit
             elif h >= trade.take_profit:
-                exit_price = trade.take_profit - p["slippage_ticks"] * p["tick_size"]
+                exit_price = trade.take_profit - self._fill_cost()
                 exit_reason = "take_profit"
             # Trailing stop
             elif p["useTrailing"] and trade.sl_distance > 0:
@@ -681,15 +699,15 @@ class SMCEngine:
                     if np.isnan(s.trail_stop) or new_trail > s.trail_stop:
                         s.trail_stop = new_trail
                     if l <= s.trail_stop:
-                        exit_price = s.trail_stop - p["slippage_ticks"] * p["tick_size"]
+                        exit_price = s.trail_stop - self._fill_cost()
                         exit_reason = "trailing_stop"
 
         elif trade.direction == -1:  # Short
             if h >= trade.stop_loss:
-                exit_price = trade.stop_loss + p["slippage_ticks"] * p["tick_size"]
+                exit_price = trade.stop_loss + self._fill_cost()
                 exit_reason = "stop_loss"
             elif l <= trade.take_profit:
-                exit_price = trade.take_profit + p["slippage_ticks"] * p["tick_size"]
+                exit_price = trade.take_profit + self._fill_cost()
                 exit_reason = "take_profit"
             elif p["useTrailing"] and trade.sl_distance > 0:
                 r_achieved = (trade.entry_price - l) / trade.sl_distance
@@ -700,7 +718,7 @@ class SMCEngine:
                     if np.isnan(s.trail_stop) or new_trail < s.trail_stop:
                         s.trail_stop = new_trail
                     if h >= s.trail_stop:
-                        exit_price = s.trail_stop + p["slippage_ticks"] * p["tick_size"]
+                        exit_price = s.trail_stop + self._fill_cost()
                         exit_reason = "trailing_stop"
 
         if exit_price is not None:

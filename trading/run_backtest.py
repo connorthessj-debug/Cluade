@@ -100,8 +100,32 @@ def main():
                         help="Save results to JSON file")
     parser.add_argument("--quick", action="store_true",
                         help="Use reduced search space for faster optimization")
+    parser.add_argument("--bayesian", action="store_true", default=True,
+                        help="Use Bayesian (Optuna) optimization (default)")
+    parser.add_argument("--grid", action="store_true",
+                        help="Use grid search instead of Bayesian optimization")
+    parser.add_argument("--objective", type=str, default="composite",
+                        choices=["sharpe", "sortino", "calmar", "composite"],
+                        help="Objective function (default: composite)")
+    parser.add_argument("--monte-carlo", action="store_true",
+                        help="Run Monte Carlo simulation after backtest")
+    parser.add_argument("--mc-sims", type=int, default=1000,
+                        help="Number of Monte Carlo simulations (default: 1000)")
+    parser.add_argument("--dashboard", action="store_true",
+                        help="Launch web dashboard")
 
     args = parser.parse_args()
+
+    # Dashboard mode
+    if args.dashboard:
+        from trading.dashboard import run_dashboard
+        run_dashboard()
+        return
+
+    # Set objective function
+    from trading.auto_improve import set_objective
+    set_objective(args.objective)
+    print(f"Objective: {args.objective}")
 
     # Load data
     print("Loading data...")
@@ -123,16 +147,24 @@ def main():
     out_dir = get_output_dir(inst_key, args.style)
     os.makedirs(out_dir, exist_ok=True)
 
+    use_bayesian = not args.grid
+
     if args.loop:
         from trading.auto_improve import loop_until_profitable
         result = loop_until_profitable(data, output_dir=out_dir,
-                                       base_params=params)
+                                       base_params=params,
+                                       use_bayesian=use_bayesian)
         if args.output:
             save_results(result, args.output)
 
     elif args.optimize:
-        from trading.auto_improve import optimize
-        result = optimize(data, output_dir=out_dir, quick=args.quick)
+        if use_bayesian and not args.quick:
+            from trading.auto_improve import optimize_bayesian
+            result = optimize_bayesian(data, output_dir=out_dir,
+                                       base_params=params)
+        else:
+            from trading.auto_improve import optimize
+            result = optimize(data, output_dir=out_dir, quick=args.quick)
 
         if args.refine:
             from trading.auto_improve import refine
@@ -141,7 +173,6 @@ def main():
 
     elif args.refine:
         from trading.auto_improve import refine
-        # Load seed from existing optimized_params.json
         opt_path = os.path.join(out_dir, "optimized_params.json")
         seed = None
         if os.path.exists(opt_path):
@@ -160,6 +191,16 @@ def main():
         print("\nRunning backtest...")
         result = run_backtest(data, params)
         print_backtest_report(result)
+
+        if args.monte_carlo:
+            from trading.backtest.backtester import monte_carlo
+            from trading.backtest.report import print_monte_carlo_report
+            print("\nRunning Monte Carlo simulation...")
+            mc = monte_carlo(result["trades"] if result["trades"] and hasattr(result["trades"][0], 'pnl')
+                             else [type('T', (), t)() for t in result.get("trades", [])],
+                             n_simulations=args.mc_sims)
+            print_monte_carlo_report(mc)
+
         if args.output:
             save_results(result, args.output)
 

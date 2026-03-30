@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Auto-improvement system for SMC MNQ strategy.
-Performs grid search parameter optimization with guard rails.
+Supports grid search, Bayesian (Optuna), and refinement optimization with guard rails.
 """
 
 import json
@@ -12,9 +12,9 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
-from trading.backtest.backtester import run_backtest
+from trading.backtest.backtester import run_backtest, monte_carlo
 from trading.backtest.smc_engine import DEFAULT_PARAMS
-from trading.backtest.report import print_optimization_report
+from trading.backtest.report import print_optimization_report, print_monte_carlo_report
 
 
 # Parameter search space — key parameters that affect performance most
@@ -40,11 +40,34 @@ MIN_TRADES = 10
 MAX_DRAWDOWN_PCT = 20.0
 MIN_WIN_RATE = 30.0
 
+# Objective functions
+OBJECTIVES = {
+    "sharpe": lambda m: m["sharpe_ratio"] + 0.1 * min(m["profit_factor"], 5.0) + 0.01 * m["win_rate"],
+    "sortino": lambda m: m.get("sortino_ratio", 0) + 0.1 * min(m["profit_factor"], 5.0) + 0.01 * m["win_rate"],
+    "calmar": lambda m: m.get("calmar_ratio", 0) + 0.1 * min(m["profit_factor"], 5.0) + 0.01 * m["win_rate"],
+    "composite": lambda m: (
+        0.4 * m["sharpe_ratio"]
+        + 0.3 * m.get("sortino_ratio", 0)
+        + 0.3 * min(m.get("calmar_ratio", 0), 10.0)
+        + 0.1 * min(m["profit_factor"], 5.0)
+        + 0.01 * m["win_rate"]
+    ),
+}
+
+_active_objective = "composite"
+
+
+def set_objective(name: str):
+    """Set the active objective function."""
+    global _active_objective
+    if name not in OBJECTIVES:
+        raise ValueError(f"Unknown objective: {name}. Available: {list(OBJECTIVES.keys())}")
+    _active_objective = name
+
 
 def _objective(metrics: dict) -> float:
     """
     Score a parameter set. Higher is better.
-    Maximizes Sharpe ratio with constraints.
     Returns -inf for parameter sets that violate guard rails.
     """
     if metrics["total_trades"] < MIN_TRADES:
@@ -54,13 +77,7 @@ def _objective(metrics: dict) -> float:
     if metrics["win_rate"] < MIN_WIN_RATE:
         return float("-inf")
 
-    # Primary: Sharpe ratio
-    # Secondary bonus for profit factor and win rate
-    score = metrics["sharpe_ratio"]
-    score += 0.1 * min(metrics["profit_factor"], 5.0)  # cap PF contribution
-    score += 0.01 * metrics["win_rate"]
-
-    return score
+    return OBJECTIVES[_active_objective](metrics)
 
 
 def optimize(data: pd.DataFrame, output_dir: str = None,
@@ -184,6 +201,124 @@ def optimize(data: pd.DataFrame, output_dir: str = None,
     }
 
 
+def optimize_bayesian(data: pd.DataFrame, output_dir: str = None,
+                      n_trials: int = 300, base_params: dict = None,
+                      extra_space: dict = None) -> dict:
+    """
+    Bayesian optimization using Optuna's TPE sampler.
+    Finds good params in ~200-500 trials instead of 15k grid combos.
+
+    Args:
+        data: OHLCV DataFrame
+        output_dir: Directory to save results
+        n_trials: Number of Optuna trials (default 300)
+        base_params: Starting parameters
+        extra_space: Additional params to search (for expansion iterations)
+
+    Returns:
+        Dict with baseline, best result, and top results
+    """
+    import optuna
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
+
+    if output_dir is None:
+        output_dir = os.path.dirname(os.path.abspath(__file__))
+
+    bp = base_params or DEFAULT_PARAMS.copy()
+
+    # Baseline
+    print("Running baseline backtest...")
+    baseline = run_backtest(data, bp)
+    print(f"  Baseline: {baseline['metrics']['total_trades']} trades, "
+          f"Sharpe={baseline['metrics']['sharpe_ratio']:.4f}, "
+          f"PnL=${baseline['metrics']['net_pnl']:.2f}")
+
+    all_results = []
+
+    def trial_objective(trial):
+        params = bp.copy()
+        params["swingLen"] = trial.suggest_int("swingLen", 2, 12)
+        params["obMaxAge"] = trial.suggest_int("obMaxAge", 25, 200, step=25)
+        params["atrSlMult"] = trial.suggest_float("atrSlMult", 0.5, 3.5, step=0.1)
+        params["rrRatio"] = trial.suggest_float("rrRatio", 0.8, 4.0, step=0.25)
+        params["fvgMinSize"] = trial.suggest_float("fvgMinSize", 0.05, 2.0, step=0.05)
+        params["pdLookback"] = trial.suggest_int("pdLookback", 15, 100, step=5)
+
+        if extra_space:
+            for k, v in extra_space.items():
+                if isinstance(v[0], bool):
+                    params[k] = trial.suggest_categorical(k, v)
+                elif isinstance(v[0], int):
+                    params[k] = trial.suggest_int(k, min(v), max(v))
+                else:
+                    params[k] = trial.suggest_float(k, min(v), max(v))
+
+        result = run_backtest(data, params)
+        score = _objective(result["metrics"])
+
+        changed = {k: params[k] for k in SEARCH_SPACE.keys()}
+        all_results.append({
+            "params": changed,
+            "score": score,
+            "metrics": result["metrics"],
+        })
+
+        return score
+
+    print(f"\nBayesian optimization: {n_trials} trials...")
+    study = optuna.create_study(direction="maximize",
+                                sampler=optuna.samplers.TPESampler(seed=42))
+    study.optimize(trial_objective, n_trials=n_trials,
+                   callbacks=[lambda study, trial: print(
+                       f"  [{trial.number + 1}/{n_trials}] "
+                       f"Best: {study.best_value:.4f}") if (trial.number + 1) % 50 == 0 else None])
+
+    # Get best result
+    best_trial = study.best_trial
+    best_params = bp.copy()
+    for k, v in best_trial.params.items():
+        best_params[k] = v
+    best_result = run_backtest(data, best_params)
+
+    changed = {k: best_params[k] for k in SEARCH_SPACE.keys()}
+    print_optimization_report(baseline, best_result, changed)
+
+    # Save
+    opt_params_path = os.path.join(output_dir, "optimized_params.json")
+    opt_out = {k: best_params[k] for k in SEARCH_SPACE.keys()}
+    opt_out["_metadata"] = {
+        "optimized_at": datetime.now().isoformat(),
+        "method": "bayesian_tpe",
+        "n_trials": n_trials,
+        "objective": _active_objective,
+        "baseline_sharpe": baseline["metrics"]["sharpe_ratio"],
+        "optimized_sharpe": best_result["metrics"]["sharpe_ratio"],
+    }
+    with open(opt_params_path, "w") as f:
+        json.dump(opt_out, f, indent=2)
+
+    _update_trade_log(os.path.join(output_dir, "trade_log.json"),
+                      baseline["metrics"], best_result["metrics"], changed)
+    _update_changelog(os.path.join(output_dir, "CHANGELOG.md"),
+                      baseline["metrics"], best_result["metrics"], changed)
+
+    all_results.sort(key=lambda x: x["score"], reverse=True)
+
+    print(f"\nTop 5 parameter sets:")
+    print(f"  {'Rank':>4s}  {'Score':>8s}  {'Sharpe':>8s}  {'Win%':>6s}  {'PF':>6s}  {'PnL':>10s}")
+    for i, r in enumerate(all_results[:5]):
+        m = r["metrics"]
+        print(f"  {i + 1:>4d}  {r['score']:>8.4f}  {m['sharpe_ratio']:>8.4f}  {m['win_rate']:>5.1f}%  "
+              f"{m['profit_factor']:>6.2f}  ${m['net_pnl']:>9,.2f}")
+
+    return {
+        "baseline": baseline,
+        "best": best_result,
+        "best_params": changed,
+        "all_results": all_results[:20],
+    }
+
+
 def _update_trade_log(path: str, baseline_metrics: dict, opt_metrics: dict,
                       params: dict):
     """Append optimization entry to trade_log.json."""
@@ -265,7 +400,8 @@ def _update_changelog(path: str, baseline_metrics: dict, opt_metrics: dict,
 
 
 def _save_profitable_snapshot(output_dir: str, params: dict, metrics: dict,
-                              iteration: int):
+                              iteration: int, mc_results: dict = None,
+                              oos_metrics: dict = None):
     """Save a profitable parameter set as profitable_smcV1."""
     snapshot_dir = os.path.join(output_dir, "profitable_smcV1")
     os.makedirs(snapshot_dir, exist_ok=True)
@@ -274,9 +410,12 @@ def _save_profitable_snapshot(output_dir: str, params: dict, metrics: dict,
         "version": "profitable_smcV1",
         "found_at_iteration": iteration,
         "found_at": datetime.now().isoformat(),
+        "objective": _active_objective,
         "params": params,
         "metrics": {
             "sharpe_ratio": metrics["sharpe_ratio"],
+            "sortino_ratio": metrics.get("sortino_ratio", 0),
+            "calmar_ratio": metrics.get("calmar_ratio", 0),
             "net_pnl": metrics["net_pnl"],
             "win_rate": metrics["win_rate"],
             "profit_factor": metrics["profit_factor"],
@@ -284,6 +423,24 @@ def _save_profitable_snapshot(output_dir: str, params: dict, metrics: dict,
             "max_drawdown_pct": metrics["max_drawdown_pct"],
         },
     }
+
+    if oos_metrics:
+        snapshot["out_of_sample"] = {
+            "sharpe_ratio": oos_metrics["sharpe_ratio"],
+            "net_pnl": oos_metrics["net_pnl"],
+            "win_rate": oos_metrics["win_rate"],
+            "profit_factor": oos_metrics["profit_factor"],
+            "total_trades": oos_metrics["total_trades"],
+        }
+
+    if mc_results:
+        snapshot["monte_carlo"] = {
+            "robust": mc_results["robust"],
+            "pct_profitable": mc_results["pct_profitable"],
+            "pnl_p5": mc_results["pnl"]["p5"],
+            "pnl_p50": mc_results["pnl"]["p50"],
+            "max_dd_p95": mc_results["max_drawdown"]["p95"],
+        }
 
     path = os.path.join(snapshot_dir, "profitable_smcV1.json")
     with open(path, "w") as f:
@@ -457,21 +614,24 @@ def refine(data: pd.DataFrame, seed_params: dict = None,
 
 
 def loop_until_profitable(data: pd.DataFrame, output_dir: str = None,
-                          max_iterations: int = 5, base_params: dict = None) -> dict:
+                          max_iterations: int = 5, base_params: dict = None,
+                          use_bayesian: bool = True) -> dict:
     """
     Repeatedly optimize and refine until the strategy is profitable.
 
     Each iteration:
-    1. Quick grid search
-    2. Refine top 3 results
-    3. Check if profitable (Sharpe > 0 AND net_pnl > 0)
-    4. If not, widen the search space and retry
+    1. Bayesian optimization (or grid search) on 70% train data
+    2. Refine top results
+    3. Validate on 30% test data (walk-forward)
+    4. If profitable on BOTH train AND test → save snapshot + Monte Carlo
+    5. Keep looping to improve further
 
     Args:
         data: OHLCV DataFrame
         output_dir: Directory to save results
         max_iterations: Max optimization loops
         base_params: Starting parameter set (uses DEFAULT_PARAMS if None)
+        use_bayesian: Use Optuna Bayesian optimization (default True)
 
     Returns:
         Best result found (profitable or best-effort)
@@ -482,6 +642,12 @@ def loop_until_profitable(data: pd.DataFrame, output_dir: str = None,
     best_overall = None
     best_overall_score = float("-inf")
     current_params = (base_params or DEFAULT_PARAMS).copy()
+
+    # Walk-forward split: 70% train, 30% test
+    split_idx = int(len(data) * 0.7)
+    train_data = data.iloc[:split_idx].reset_index(drop=True)
+    test_data = data.iloc[split_idx:].reset_index(drop=True)
+    print(f"  Walk-forward split: {len(train_data)} train bars, {len(test_data)} test bars")
 
     # Expanding search spaces for each iteration
     expansion_params = [
@@ -497,47 +663,82 @@ def loop_until_profitable(data: pd.DataFrame, output_dir: str = None,
         print(f"  OPTIMIZATION LOOP — Iteration {iteration + 1}/{max_iterations}")
         print(f"{'='*60}")
 
-        # Build search space — full grid (1,728 combos) + expansions
-        space = SEARCH_SPACE.copy()
-        if iteration < len(expansion_params):
-            space.update(expansion_params[iteration])
+        extra = expansion_params[iteration] if iteration < len(expansion_params) else {}
 
-        # Phase 1: Grid search
-        grid_result = optimize(data, output_dir=output_dir, search_space=space,
-                               quick=False)
+        # Phase 1: Optimize on TRAIN data only
+        print(f"\n--- Phase 1: Optimization on train data ---")
+        if use_bayesian:
+            n_trials = 300 + iteration * 100  # More trials each iteration
+            opt_result = optimize_bayesian(train_data, output_dir=output_dir,
+                                           n_trials=n_trials, base_params=current_params,
+                                           extra_space=extra if extra else None)
+        else:
+            space = SEARCH_SPACE.copy()
+            space.update(extra)
+            opt_result = optimize(train_data, output_dir=output_dir,
+                                  search_space=space, quick=False)
 
-        # Phase 2: Refine top results
-        print(f"\n--- Refinement phase ---")
-        refined = refine(data, seed_results=grid_result["all_results"],
+        # Phase 2: Refine top results on train data
+        print(f"\n--- Phase 2: Refinement on train data ---")
+        refined = refine(train_data, seed_results=opt_result["all_results"],
                          top_n=3, output_dir=output_dir)
 
-        best = refined["best"]
-        score = _objective(best["metrics"])
-        metrics = best["metrics"]
+        # Phase 3: Validate on TEST data (out-of-sample)
+        print(f"\n--- Phase 3: Out-of-sample validation ---")
+        best_params_full = DEFAULT_PARAMS.copy()
+        best_params_full.update(current_params)
+        best_params_full.update(refined["best_params"])
 
-        print(f"\n  Iteration {iteration + 1} result: "
-              f"Sharpe={metrics['sharpe_ratio']:.4f}, "
-              f"PnL=${metrics['net_pnl']:.2f}, "
-              f"WR={metrics['win_rate']:.1f}%")
+        train_result = refined["best"]
+        test_result = run_backtest(test_data, best_params_full)
+        train_metrics = train_result["metrics"]
+        test_metrics = test_result["metrics"]
+
+        print(f"\n  {'':20s} {'In-Sample':>12s} {'Out-of-Sample':>14s}")
+        print(f"  {'Trades':20s} {train_metrics['total_trades']:>12d} {test_metrics['total_trades']:>14d}")
+        print(f"  {'Win Rate':20s} {train_metrics['win_rate']:>11.2f}% {test_metrics['win_rate']:>13.2f}%")
+        print(f"  {'Net P&L':20s} ${train_metrics['net_pnl']:>10,.2f} ${test_metrics['net_pnl']:>12,.2f}")
+        print(f"  {'Sharpe':20s} {train_metrics['sharpe_ratio']:>12.4f} {test_metrics['sharpe_ratio']:>14.4f}")
+        print(f"  {'Sortino':20s} {train_metrics.get('sortino_ratio',0):>12.4f} {test_metrics.get('sortino_ratio',0):>14.4f}")
+        print(f"  {'Calmar':20s} {train_metrics.get('calmar_ratio',0):>12.4f} {test_metrics.get('calmar_ratio',0):>14.4f}")
+        print(f"  {'Profit Factor':20s} {train_metrics['profit_factor']:>12.4f} {test_metrics['profit_factor']:>14.4f}")
+
+        # Use full-data score for overall ranking
+        full_result = run_backtest(data, best_params_full)
+        score = _objective(full_result["metrics"])
+        metrics = full_result["metrics"]
 
         if score > best_overall_score:
             best_overall_score = score
-            best_overall = refined
+            best_overall = {"best": full_result, "best_params": refined["best_params"],
+                            "baseline": opt_result["baseline"]}
 
-        # Check profitability
-        if metrics["sharpe_ratio"] > 0 and metrics["net_pnl"] > 0:
-            print(f"\n  *** PROFITABLE STRATEGY FOUND ***")
-            print(f"  Sharpe: {metrics['sharpe_ratio']:.4f}")
-            print(f"  Net P&L: ${metrics['net_pnl']:.2f}")
-            print(f"  Win Rate: {metrics['win_rate']:.2f}%")
-            print(f"  Profit Factor: {metrics['profit_factor']:.4f}")
+        # Check profitability on BOTH train AND test
+        train_profitable = train_metrics["sharpe_ratio"] > 0 and train_metrics["net_pnl"] > 0
+        test_profitable = test_metrics["sharpe_ratio"] > 0 and test_metrics["net_pnl"] > 0
 
-            # Save profitable snapshot as profitable_smcV1
+        if train_profitable and test_profitable:
+            print(f"\n  *** PROFITABLE ON BOTH IN-SAMPLE AND OUT-OF-SAMPLE ***")
+            print(f"  Full-data Sharpe: {metrics['sharpe_ratio']:.4f}")
+            print(f"  Full-data P&L:    ${metrics['net_pnl']:.2f}")
+
+            # Phase 4: Monte Carlo robustness test
+            print(f"\n--- Phase 4: Monte Carlo robustness test ---")
+            mc = monte_carlo(full_result["trades"] if hasattr(full_result["trades"][0], 'pnl')
+                             else [type('T', (), t)() for t in full_result["trades"]],
+                             n_simulations=1000)
+            print_monte_carlo_report(mc)
+
+            # Save snapshot with Monte Carlo results
             _save_profitable_snapshot(output_dir, refined["best_params"],
-                                      metrics, iteration + 1)
+                                      metrics, iteration + 1, mc_results=mc,
+                                      oos_metrics=test_metrics)
 
-            # Keep looping to improve further
             print(f"\n  Snapshot saved as profitable_smcV1. Continuing optimization...")
+        elif train_profitable:
+            print(f"\n  Profitable in-sample but NOT out-of-sample. Continuing...")
+        else:
+            print(f"\n  Not yet profitable. Continuing to iteration {iteration + 2}...")
 
     print(f"\n  Optimization complete ({max_iterations} iterations). "
           f"Best Sharpe: {best_overall['best']['metrics']['sharpe_ratio']:.4f}")

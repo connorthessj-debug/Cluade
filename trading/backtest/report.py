@@ -31,6 +31,8 @@ def print_backtest_report(result: dict):
     print(f"  Max Drawdown:      ${m['max_drawdown']:>10,.2f}")
     print(f"  Max Drawdown %:    {m['max_drawdown_pct']:.2f}%")
     print(f"  Sharpe Ratio:      {m['sharpe_ratio']:.4f}")
+    print(f"  Sortino Ratio:     {m.get('sortino_ratio', 0):.4f}")
+    print(f"  Calmar Ratio:      {m.get('calmar_ratio', 0):.4f}")
 
     print(f"\n{'AVERAGES':^60}")
     print("-" * 60)
@@ -85,6 +87,29 @@ def print_walk_forward_report(wf_result: dict):
         print(f"  Avg OOS Sharpe:     {agg['avg_oos_sharpe']:.4f}")
 
     print("\n" + "=" * 70)
+
+
+def print_monte_carlo_report(mc: dict):
+    """Print Monte Carlo simulation results."""
+    print("=" * 60)
+    print("  MONTE CARLO SIMULATION")
+    print("=" * 60)
+    print(f"\n  Simulations:       {mc['n_simulations']}")
+    print(f"  Trades shuffled:   {mc['n_trades']}")
+    print(f"  Robust (P5>0):     {'YES' if mc['robust'] else 'NO'}")
+    print(f"  % Profitable:      {mc['pct_profitable']:.1f}%")
+
+    print(f"\n  {'Percentile':15s} {'5th':>10s} {'25th':>10s} {'50th':>10s} {'75th':>10s} {'95th':>10s}")
+    print("  " + "-" * 55)
+    for metric in ["pnl", "max_drawdown", "sharpe", "profit_factor"]:
+        vals = mc[metric]
+        label = metric.replace("_", " ").title()
+        prefix = "$" if metric in ("pnl", "max_drawdown") else ""
+        fmt = ",.2f" if metric in ("pnl", "max_drawdown") else ".4f"
+        print(f"  {label:15s} {prefix}{vals['p5']:>10{fmt}} {prefix}{vals['p25']:>10{fmt}} "
+              f"{prefix}{vals['p50']:>10{fmt}} {prefix}{vals['p75']:>10{fmt}} {prefix}{vals['p95']:>10{fmt}}")
+
+    print("\n" + "=" * 60)
 
 
 def print_optimization_report(baseline: dict, optimized: dict, best_params: dict):
