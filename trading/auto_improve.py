@@ -265,14 +265,14 @@ def _update_changelog(path: str, baseline_metrics: dict, opt_metrics: dict,
 
 
 # Fine-grained refinement steps around a seed parameter set
-# Kept tight to limit combinatorial explosion (~3 values per param)
+# Wide range + fine steps for maximum precision (~13k combos per seed)
 REFINE_STEPS = {
-    "swingLen":   {"step": 1,    "range": 1,    "min": 2,    "max": 15},
-    "obMaxAge":   {"step": 25,   "range": 25,   "min": 25,   "max": 300},
-    "atrSlMult":  {"step": 0.1,  "range": 0.2,  "min": 0.3,  "max": 4.0},
-    "rrRatio":    {"step": 0.25, "range": 0.25, "min": 0.5,  "max": 5.0},
-    "fvgMinSize": {"step": 0.25, "range": 0.25, "min": 0.01, "max": 3.0},
-    "pdLookback": {"step": 5,    "range": 5,    "min": 10,   "max": 150},
+    "swingLen":   {"step": 1,     "range": 2,    "min": 2,    "max": 15},
+    "obMaxAge":   {"step": 25,    "range": 50,   "min": 25,   "max": 300},
+    "atrSlMult":  {"step": 0.1,   "range": 0.3,  "min": 0.3,  "max": 4.0},
+    "rrRatio":    {"step": 0.25,  "range": 0.5,  "min": 0.5,  "max": 5.0},
+    "fvgMinSize": {"step": 0.125, "range": 0.25, "min": 0.01, "max": 3.0},
+    "pdLookback": {"step": 5,     "range": 10,   "min": 10,   "max": 150},
 }
 
 
@@ -469,8 +469,8 @@ def loop_until_profitable(data: pd.DataFrame, output_dir: str = None,
         print(f"  OPTIMIZATION LOOP — Iteration {iteration + 1}/{max_iterations}")
         print(f"{'='*60}")
 
-        # Build search space for this iteration
-        space = QUICK_SEARCH_SPACE.copy()
+        # Build search space — full grid (1,728 combos) + expansions
+        space = SEARCH_SPACE.copy()
         if iteration < len(expansion_params):
             space.update(expansion_params[iteration])
 
