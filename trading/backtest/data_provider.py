@@ -226,6 +226,109 @@ def load_csv_data(filepath: str) -> pd.DataFrame:
     return df
 
 
+def fetch_yahoo(symbol: str, interval: str = "15m",
+                range_str: str = "60d") -> pd.DataFrame:
+    """
+    Fetch OHLCV data from Yahoo Finance v8 chart API.
+
+    Args:
+        symbol: Yahoo ticker (e.g. "NQ=F", "GC=F", "ES=F")
+        interval: Bar interval ("1m", "5m", "15m", "1h", "1d")
+        range_str: Data range ("60d", "2y", etc.)
+
+    Returns:
+        DataFrame with columns [timestamp, open, high, low, close, volume]
+    """
+    import json
+    import urllib.request
+
+    url = (f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+           f"?interval={interval}&range={range_str}")
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        data = json.loads(resp.read())
+
+    result = data["chart"]["result"][0]
+    if "timestamp" not in result or result["timestamp"] is None:
+        raise ValueError(f"No data returned for {symbol} ({interval}, {range_str})")
+
+    ts = result["timestamp"]
+    quote = result["indicators"]["quote"][0]
+
+    df = pd.DataFrame({
+        "timestamp": pd.to_datetime(ts, unit="s", utc=True),
+        "open": quote["open"],
+        "high": quote["high"],
+        "low": quote["low"],
+        "close": quote["close"],
+        "volume": quote["volume"],
+    })
+    return df.dropna().reset_index(drop=True)
+
+
+def fetch_yahoo_2yr(symbol: str, seed: int = 42) -> pd.DataFrame:
+    """
+    Fetch 2 years of data from Yahoo Finance.
+    Uses 1-hour data and interpolates to 15-min bars.
+
+    Args:
+        symbol: Yahoo ticker
+        seed: Random seed for interpolation
+
+    Returns:
+        DataFrame with ~45k 15-min bars
+    """
+    df_1h = fetch_yahoo(symbol, interval="1h", range_str="2y")
+    rng = np.random.default_rng(seed)
+    rows = []
+
+    for _, bar in df_1h.iterrows():
+        ts = bar["timestamp"]
+        o, h, l, c, v = bar["open"], bar["high"], bar["low"], bar["close"], bar["volume"]
+        bar_range = h - l
+        if bar_range == 0:
+            bar_range = max(0.01, abs(o) * 0.0001)
+
+        bull = c >= o
+        if bull:
+            pivots = [
+                o + (c - o) * rng.uniform(0.0, 0.3),
+                l + (o - l) * rng.uniform(0.0, 0.4),
+                o + (h - o) * rng.uniform(0.5, 0.9),
+                c,
+            ]
+        else:
+            pivots = [
+                o + (h - o) * rng.uniform(0.3, 0.8),
+                o - (o - c) * rng.uniform(0.2, 0.5),
+                c + (l - c) * rng.uniform(-0.2, 0.3),
+                c,
+            ]
+
+        sub_opens = [o, pivots[0], pivots[1], pivots[2]]
+        sub_closes = pivots
+
+        for i in range(4):
+            sub_ts = ts + pd.Timedelta(minutes=15 * i)
+            so, sc = sub_opens[i], sub_closes[i]
+            sub_h = min(h, max(so, sc) + bar_range * rng.uniform(0.01, 0.15))
+            sub_l = max(l, min(so, sc) - bar_range * rng.uniform(0.01, 0.15))
+            sub_h = max(sub_h, so, sc)
+            sub_l = min(sub_l, so, sc)
+            sub_v = max(1, int(v / 4 * rng.uniform(0.5, 1.5))) if v and v > 0 else 0
+
+            rows.append({
+                "timestamp": sub_ts,
+                "open": round(so, 2),
+                "high": round(sub_h, 2),
+                "low": round(sub_l, 2),
+                "close": round(sc, 2),
+                "volume": sub_v,
+            })
+
+    return pd.DataFrame(rows)
+
+
 if __name__ == "__main__":
     df = generate_synthetic_data()
     print(f"Generated {len(df)} bars spanning {df['timestamp'].iloc[0].date()} to {df['timestamp'].iloc[-1].date()}")

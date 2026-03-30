@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """
-CLI entry point for SMC MNQ backtesting and optimization.
+CLI entry point for SMC backtesting and optimization.
 
 Usage:
-    python trading/run_backtest.py                          # Basic backtest with defaults
-    python trading/run_backtest.py --optimize               # Grid search optimization
-    python trading/run_backtest.py --walk-forward            # Walk-forward analysis
-    python trading/run_backtest.py --params optimized.json   # Backtest with custom params
-    python trading/run_backtest.py --years 3.0               # Override data length
+    python trading/run_backtest.py                                    # Basic backtest with defaults
+    python trading/run_backtest.py --optimize                         # Grid search optimization
+    python trading/run_backtest.py --refine                           # Refine around current best
+    python trading/run_backtest.py --loop                             # Loop until profitable
+    python trading/run_backtest.py --walk-forward                     # Walk-forward analysis
+    python trading/run_backtest.py --instrument gold --style scalping # Gold scalping
+    python trading/run_backtest.py --params optimized.json            # Custom params
 """
 
 import argparse
@@ -15,50 +17,85 @@ import json
 import os
 import sys
 
-# Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from trading.backtest.data_provider import generate_synthetic_data, load_csv_data
+from trading.backtest.data_provider import (
+    generate_synthetic_data, load_csv_data, fetch_yahoo_2yr,
+)
 from trading.backtest.backtester import run_backtest, walk_forward
 from trading.backtest.report import (
     print_backtest_report,
     print_walk_forward_report,
-    print_optimization_report,
 )
 from trading.backtest.smc_engine import DEFAULT_PARAMS
+from trading.backtest.instruments import INSTRUMENTS, STYLE_DEFAULTS, get_params
 
 
-def load_params(filepath: str) -> dict:
-    """Load parameters from a JSON file, merging with defaults."""
+def load_params(filepath: str, base: dict = None) -> dict:
+    """Load parameters from a JSON file, merging with base."""
     with open(filepath) as f:
         custom = json.load(f)
-    params = {**DEFAULT_PARAMS, **custom}
-    return params
+    custom.pop("_metadata", None)
+    return {**(base or DEFAULT_PARAMS), **custom}
 
 
 def save_results(result: dict, filepath: str):
     """Save backtest results to JSON."""
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
     with open(filepath, "w") as f:
         json.dump(result, f, indent=2, default=str)
     print(f"\nResults saved to: {filepath}")
 
 
+def load_data(args, instrument_key: str = None):
+    """Load data based on CLI arguments."""
+    if args.csv:
+        data = load_csv_data(args.csv)
+        print(f"Loaded {len(data)} bars from {args.csv}")
+    elif instrument_key and instrument_key in INSTRUMENTS:
+        symbol = INSTRUMENTS[instrument_key]["symbol"]
+        print(f"Fetching 2-year {symbol} data from Yahoo Finance...")
+        data = fetch_yahoo_2yr(symbol)
+        print(f"Fetched {len(data)} bars ({data['timestamp'].iloc[0]} to {data['timestamp'].iloc[-1]})")
+    else:
+        data = generate_synthetic_data(years=args.years, seed=args.seed)
+        print(f"Generated {len(data)} bars of synthetic data "
+              f"({data['timestamp'].iloc[0].date()} to {data['timestamp'].iloc[-1].date()})")
+    return data
+
+
+def get_output_dir(instrument: str, style: str) -> str:
+    """Get output directory for a given instrument/style combo."""
+    base = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base, "strategies", style, instrument)
+
+
 def main():
-    parser = argparse.ArgumentParser(description="SMC MNQ Backtesting System")
+    parser = argparse.ArgumentParser(description="SMC Backtesting System")
     parser.add_argument("--optimize", action="store_true",
                         help="Run parameter optimization (grid search)")
+    parser.add_argument("--refine", action="store_true",
+                        help="Refine around current best parameters")
+    parser.add_argument("--loop", action="store_true",
+                        help="Loop optimize+refine until profitable")
     parser.add_argument("--walk-forward", action="store_true",
                         help="Run walk-forward analysis")
+    parser.add_argument("--instrument", type=str, default=None,
+                        choices=list(INSTRUMENTS.keys()),
+                        help="Instrument to trade")
+    parser.add_argument("--style", type=str, default="smc_swing",
+                        choices=list(STYLE_DEFAULTS.keys()),
+                        help="Trading style (default: smc_swing)")
     parser.add_argument("--params", type=str, default=None,
                         help="Path to custom parameters JSON file")
     parser.add_argument("--csv", type=str, default=None,
-                        help="Path to CSV data file (uses synthetic data if not provided)")
+                        help="Path to CSV data file")
     parser.add_argument("--years", type=float, default=2.5,
-                        help="Years of synthetic data to generate (default: 2.5)")
+                        help="Years of synthetic data (default: 2.5)")
     parser.add_argument("--seed", type=int, default=42,
-                        help="Random seed for synthetic data (default: 42)")
+                        help="Random seed (default: 42)")
     parser.add_argument("--folds", type=int, default=5,
-                        help="Number of walk-forward folds (default: 5)")
+                        help="Walk-forward folds (default: 5)")
     parser.add_argument("--output", type=str, default=None,
                         help="Save results to JSON file")
     parser.add_argument("--quick", action="store_true",
@@ -68,40 +105,61 @@ def main():
 
     # Load data
     print("Loading data...")
-    if args.csv:
-        data = load_csv_data(args.csv)
-        print(f"Loaded {len(data)} bars from {args.csv}")
-    else:
-        data = generate_synthetic_data(years=args.years, seed=args.seed)
-        print(f"Generated {len(data)} bars of synthetic MNQ data "
-              f"({data['timestamp'].iloc[0].date()} to {data['timestamp'].iloc[-1].date()})")
+    data = load_data(args, args.instrument)
 
-    # Load params
-    params = DEFAULT_PARAMS.copy()
+    # Build params
     if args.params:
-        params = load_params(args.params)
+        base = get_params(args.instrument or "mnq", args.style)
+        params = load_params(args.params, base)
         print(f"Loaded custom parameters from {args.params}")
+    elif args.instrument:
+        params = get_params(args.instrument, args.style)
+        print(f"Using {args.style} params for {args.instrument}")
+    else:
+        params = DEFAULT_PARAMS.copy()
 
-    if args.optimize:
-        # Run auto-improvement
+    # Determine output directory
+    inst_key = args.instrument or "mnq"
+    out_dir = get_output_dir(inst_key, args.style)
+    os.makedirs(out_dir, exist_ok=True)
+
+    if args.loop:
+        from trading.auto_improve import loop_until_profitable
+        result = loop_until_profitable(data, output_dir=out_dir,
+                                       base_params=params)
+        if args.output:
+            save_results(result, args.output)
+
+    elif args.optimize:
         from trading.auto_improve import optimize
-        optimize(data, output_dir=os.path.dirname(os.path.abspath(__file__)),
-                 quick=args.quick)
+        result = optimize(data, output_dir=out_dir, quick=args.quick)
+
+        if args.refine:
+            from trading.auto_improve import refine
+            refine(data, seed_results=result["all_results"],
+                   top_n=3, output_dir=out_dir)
+
+    elif args.refine:
+        from trading.auto_improve import refine
+        # Load seed from existing optimized_params.json
+        opt_path = os.path.join(out_dir, "optimized_params.json")
+        seed = None
+        if os.path.exists(opt_path):
+            seed = load_params(opt_path, params)
+            print(f"Refining around params from {opt_path}")
+        refine(data, seed_params=seed or params, output_dir=out_dir)
 
     elif args.walk_forward:
         print(f"\nRunning walk-forward analysis ({args.folds} folds)...")
         wf_result = walk_forward(data, params, n_folds=args.folds)
         print_walk_forward_report(wf_result)
-
         if args.output:
             save_results(wf_result, args.output)
 
     else:
-        # Standard backtest
         print("\nRunning backtest...")
         result = run_backtest(data, params)
         print_backtest_report(result)
-
         if args.output:
             save_results(result, args.output)
 

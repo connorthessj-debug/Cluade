@@ -1,0 +1,18 @@
+{
+  "swingLen": 5,
+  "atrSlMult": 1.0,
+  "rrRatio": 1.5,
+  "pdLookback": 30,
+  "_metadata": {
+    "optimized_at": "2026-03-30T12:07:02.606839",
+    "baseline_sharpe": -1.1602,
+    "optimized_sharpe": -0.0293,
+    "combos_tested": 54,
+    "objective": "maximize sharpe_ratio",
+    "guard_rails": {
+      "min_trades": 10,
+      "max_drawdown_pct": 20.0,
+      "min_win_rate": 30.0
+    }
+  }
+}
