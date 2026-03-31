@@ -14,7 +14,15 @@ import pandas as pd
 
 from trading.backtest.backtester import run_backtest, monte_carlo
 from trading.backtest.smc_engine import DEFAULT_PARAMS
+from trading.backtest.rsi2_engine import RSI2_DEFAULT_PARAMS
 from trading.backtest.report import print_optimization_report, print_monte_carlo_report
+
+
+def _get_defaults(engine_type: str = "smc") -> dict:
+    """Return the correct default params for the given engine type."""
+    if engine_type == "rsi2":
+        return RSI2_DEFAULT_PARAMS.copy()
+    return DEFAULT_PARAMS.copy()
 
 
 # Parameter search space — key parameters that affect performance most
@@ -544,14 +552,15 @@ def refine(data: pd.DataFrame, seed_params: dict = None,
 
     # Determine seed points
     seeds = []
+    defaults = _get_defaults(engine_type)
     if seed_results:
         scored = sorted(seed_results, key=lambda x: x["score"], reverse=True)
         for r in scored[:top_n]:
-            p = DEFAULT_PARAMS.copy()
+            p = defaults.copy()
             p.update(r["params"])
             seeds.append(p)
     elif seed_params:
-        p = DEFAULT_PARAMS.copy()
+        p = defaults.copy()
         p.update(seed_params)
         seeds.append(p)
     else:
@@ -561,11 +570,11 @@ def refine(data: pd.DataFrame, seed_params: dict = None,
             with open(opt_path) as f:
                 loaded = json.load(f)
             loaded.pop("_metadata", None)
-            p = DEFAULT_PARAMS.copy()
+            p = defaults.copy()
             p.update(loaded)
             seeds.append(p)
         else:
-            seeds.append(DEFAULT_PARAMS.copy())
+            seeds.append(defaults.copy())
 
     # Build fine grids and deduplicate
     all_combos = set()
@@ -595,7 +604,7 @@ def refine(data: pd.DataFrame, seed_params: dict = None,
     best_result = baseline
 
     for i, combo in enumerate(combos):
-        params = DEFAULT_PARAMS.copy()
+        params = defaults.copy()
         # Carry over instrument-specific params from seed
         for k, v in seeds[0].items():
             if k not in REFINE_STEPS:
@@ -717,7 +726,7 @@ def loop_until_profitable(data: pd.DataFrame, output_dir: str = None,
 
         # Phase 3: Validate on TEST data (out-of-sample)
         print(f"\n--- Phase 3: Out-of-sample validation ---")
-        best_params_full = DEFAULT_PARAMS.copy()
+        best_params_full = _get_defaults(engine_type)
         best_params_full.update(current_params)
         best_params_full.update(refined["best_params"])
 
