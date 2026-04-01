@@ -1,0 +1,84 @@
+{
+  "metrics": {
+    "total_trades": 1200,
+    "wins": 838,
+    "losses": 362,
+    "win_rate": 69.83,
+    "profit_factor": 6.1466,
+    "net_pnl": 41514.07,
+    "max_drawdown": 270.17,
+    "max_drawdown_pct": 1.06,
+    "sharpe_ratio": 6.2688,
+    "sortino_ratio": 29.7993,
+    "calmar_ratio": 21.9573,
+    "avg_r_multiple": 1.5407,
+    "avg_win": 59.17,
+    "avg_loss": -22.28,
+    "long_trades": 994,
+    "short_trades": 206,
+    "gross_profit": 49580.4,
+    "gross_loss": 8066.33
+  },
+  "monte_carlo": {
+    "n_simulations": 1000,
+    "n_trades": 1200,
+    "pnl": {
+      "p5": 41514.06,
+      "p25": 41514.06,
+      "p50": 41514.06,
+      "p75": 41514.06,
+      "p95": 41514.06
+    },
+    "max_drawdown": {
+      "p5": 238.37,
+      "p25": 238.37,
+      "p50": 260.75,
+      "p75": 289.83,
+      "p95": 352.03
+    },
+    "sharpe": {
+      "p5": 7.5996,
+      "p25": 7.5996,
+      "p50": 7.5996,
+      "p75": 7.5996,
+      "p95": 7.5996
+    },
+    "profit_factor": {
+      "p5": 6.1466,
+      "p25": 6.1466,
+      "p50": 6.1466,
+      "p75": 6.1466,
+      "p95": 6.1466
+    },
+    "robust": true,
+    "pct_profitable": 100.0
+  },
+  "params": {
+    "maLen": 250,
+    "maType": "SMA",
+    "rsiLen": 2,
+    "rsiOversold": 19,
+    "rsiOverbought": 89,
+    "exitMaLen": 3,
+    "atrPeriod": 14,
+    "atrSlMult": 0.5,
+    "rrRatio": 1.8,
+    "useTrailing": true,
+    "trailAfterR": 1.0,
+    "sessEnabled": true,
+    "sessStartHour": 9,
+    "sessStartMin": 30,
+    "sessEndHour": 16,
+    "sessEndMin": 0,
+    "maxDailyTrades": 5,
+    "slippage_ticks": 2,
+    "tick_size": 0.25,
+    "commission": 0.62,
+    "point_value": 2.0,
+    "spread": 0.0,
+    "min_volume": 0,
+    "account_balance": 10000,
+    "max_daily_loss_pct": 5.0,
+    "max_total_dd_pct": 10.0
+  }
+}
