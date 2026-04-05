@@ -1,0 +1,14 @@
+{
+    "description": "Expected CSV format for OHLCV bar data",
+    "columns": [
+        { "name": "Date",   "type": "string", "format": "YYYY-MM-DD", "required": true },
+        { "name": "Open",   "type": "float",  "required": true },
+        { "name": "High",   "type": "float",  "required": true },
+        { "name": "Low",    "type": "float",  "required": true },
+        { "name": "Close",  "type": "float",  "required": true },
+        { "name": "Volume", "type": "float",  "required": false }
+    ],
+    "delimiter": ",",
+    "headerRow": true,
+    "notes": "Volume is optional. Lines starting with letters are treated as headers."
+}

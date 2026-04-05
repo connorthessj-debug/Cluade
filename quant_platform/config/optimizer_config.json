@@ -1,0 +1,11 @@
+{
+    "searchType": "grid",
+    "maxIterations": 500,
+    "objective": "sharpe",
+    "parameterRanges": {
+        "lookbackPeriod": { "min": 5, "max": 50, "step": 5 },
+        "entryThreshold": { "min": 0.01, "max": 0.10, "step": 0.01 },
+        "exitThreshold": { "min": -0.05, "max": 0.0, "step": 0.01 },
+        "positionSize": { "min": 0.05, "max": 0.30, "step": 0.05 }
+    }
+}
