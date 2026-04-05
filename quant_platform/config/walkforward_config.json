@@ -1,0 +1,6 @@
+{
+    "windowType": "rolling",
+    "numWindows": 5,
+    "inSampleRatio": 0.7,
+    "objective": "sharpe"
+}

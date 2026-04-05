@@ -1,0 +1,12 @@
+{
+    "slippageMultipliers": [2.0, 5.0],
+    "spreadShockMultiplier": 3.0,
+    "paramPerturbPct": 0.10,
+    "missedTradeRate": 0.15,
+    "hardFailMaxDrawdown": 0.40,
+    "hardFailMCFailureRate": 0.30,
+    "hardFailDegradationRatio": 0.30,
+    "minSharpeForLive": 0.5,
+    "minWinRateForLive": 0.35,
+    "regimeSplitRatio": 0.5
+}

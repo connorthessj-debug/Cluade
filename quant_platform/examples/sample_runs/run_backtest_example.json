@@ -1,0 +1,24 @@
+{
+    "description": "Example output from a backtest run with momentum strategy",
+    "strategy": "momentum",
+    "parameters": {
+        "lookbackPeriod": 10,
+        "entryThreshold": 0.02,
+        "exitThreshold": -0.01,
+        "positionSize": 0.10
+    },
+    "results": {
+        "initialCapital": 100000.0,
+        "finalEquity": 101234.56,
+        "totalTrades": 5,
+        "totalReturn": "1.23%",
+        "sharpeRatio": 0.85,
+        "sortinoRatio": 1.12,
+        "maxDrawdown": "3.45%",
+        "winRate": "60.00%",
+        "profitFactor": 1.65,
+        "expectancy": 246.91,
+        "avgTrade": 246.91
+    },
+    "note": "These are example values. Actual results depend on data and parameters."
+}

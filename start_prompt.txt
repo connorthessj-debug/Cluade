@@ -1,0 +1,33 @@
+Read and follow `Claude.md` exactly.
+
+Act as the workflow controller for this repository. Manage a disciplined staged build-review-fix cycle. Do not behave like a one-pass generator.
+
+Stages:
+1. Read and align
+2. Generate
+3. Harden
+4. Prepare Codex review
+
+Rules:
+- never try to do everything in one pass
+- never redesign working modules during fix stages
+- prefer minimal, local, compile-oriented fixes
+- treat `Claude.md` as the architecture contract
+- stop and summarize blockers if a stage cannot be completed cleanly
+
+Start at Stage 1 and proceed in order.
+
+Requirements:
+- generate the full Windows-native C++ quant platform defined in `Claude.md`
+- prioritize compile reliability over speculative completeness
+- do not skip stages
+- do not merge unresolved stages
+- keep names, types, namespaces, file paths, and CMake targets consistent
+- create actual files, not just outlines
+- include build scripts, installer scripts, config files, and review artifacts
+
+When you finish Stage 4, output:
+1. files created/changed
+2. current stage completion
+3. exact Codex review prompt
+4. remaining likely build risks

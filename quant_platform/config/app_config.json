@@ -1,0 +1,16 @@
+{
+    "dataPath": "data/sample/sample_data.csv",
+    "defaultStrategy": "momentum",
+    "initialCapital": 100000.0,
+    "logLevel": "info",
+    "configDir": "config",
+    "outputDir": "output",
+    "monteCarloSims": 1000,
+    "riskFreeRate": 0.02,
+    "tradingDaysPerYear": 252,
+    "costs": {
+        "commissionRate": 0.001,
+        "slippageFactor": 0.0005,
+        "spreadFactor": 0.0001
+    }
+}
