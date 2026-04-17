@@ -329,7 +329,104 @@ def fetch_yahoo_2yr(symbol: str, seed: int = 42) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-if __name__ == "__main__":
+def fetch_yahoo_long(symbol: str, years: int = 20,
+                      end_date: datetime = None) -> pd.DataFrame:
+    """
+    Fetch long-range daily OHLCV data from Yahoo Finance.
+
+    Use this for 20+ years of daily bars. Note: Yahoo only provides
+    intraday data (15m/1h) for 60 days / 2 years respectively - for
+    longer intraday history, use load_csv_data() with paid providers.
+
+    Args:
+        symbol: Yahoo ticker (e.g. "NQ=F", "GC=F", "^GSPC")
+        years: Years of history to fetch (default 20)
+        end_date: End date (default: today)
+
+    Returns:
+        DataFrame with [timestamp, open, high, low, close, volume]
+    """
+    import json
+    import urllib.request
+
+    if end_date is None:
+        end_date = datetime.now()
+    start_date = end_date - timedelta(days=int(years * 365.25))
+
+    period1 = int(start_date.timestamp())
+    period2 = int(end_date.timestamp())
+
+    url = (f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+           f"?period1={period1}&period2={period2}&interval=1d")
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        data = json.loads(resp.read())
+
+    result = data["chart"]["result"][0]
+    ts = result["timestamp"]
+    quote = result["indicators"]["quote"][0]
+
+    df = pd.DataFrame({
+        "timestamp": pd.to_datetime(ts, unit="s", utc=True),
+        "open": quote["open"],
+        "high": quote["high"],
+        "low": quote["low"],
+        "close": quote["close"],
+        "volume": quote["volume"],
+    }).dropna().reset_index(drop=True)
+
+    return df
+
+
+def load_csv_provider(filepath: str, provider: str = "auto") -> pd.DataFrame:
+    """
+    Load OHLCV CSV from common paid data providers.
+
+    Supports:
+    - FirstRateData: columns "DateTime,Open,High,Low,Close,Volume"
+    - Polygon.io:    columns "timestamp,open,high,low,close,volume"
+    - Databento:     columns "ts_event,open,high,low,close,volume"
+    - Generic:       any CSV with OHLCV columns (case-insensitive)
+
+    Args:
+        filepath: Path to CSV file
+        provider: "firstrate", "polygon", "databento", or "auto" (detect)
+
+    Returns:
+        DataFrame with standardized [timestamp, open, high, low, close, volume]
+    """
+    df = pd.read_csv(filepath)
+
+    # Normalize column names (lowercase)
+    col_map = {c: c.lower().strip() for c in df.columns}
+    df = df.rename(columns=col_map)
+
+    # Map timestamp column variants
+    ts_aliases = ["timestamp", "datetime", "date", "ts_event", "time", "ts"]
+    ts_col = next((c for c in ts_aliases if c in df.columns), None)
+    if ts_col is None:
+        raise ValueError(f"No timestamp column found. Tried: {ts_aliases}")
+
+    df = df.rename(columns={ts_col: "timestamp"})
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
+    df = df.dropna(subset=["timestamp"])
+
+    required = ["open", "high", "low", "close", "volume"]
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        raise ValueError(f"CSV missing required columns: {missing}. Got: {list(df.columns)}")
+
+    df = df[["timestamp", "open", "high", "low", "close", "volume"]]
+    df = df.sort_values("timestamp").reset_index(drop=True)
+
+    # Convert to numeric (handles string commas, quoted values)
+    for c in ["open", "high", "low", "close", "volume"]:
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+
+    return df.dropna().reset_index(drop=True)
+
+
+
     df = generate_synthetic_data()
     print(f"Generated {len(df)} bars spanning {df['timestamp'].iloc[0].date()} to {df['timestamp'].iloc[-1].date()}")
     print(f"Price range: {df['low'].min():.2f} - {df['high'].max():.2f}")

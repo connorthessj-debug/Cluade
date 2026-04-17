@@ -21,6 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from trading.backtest.data_provider import (
     generate_synthetic_data, load_csv_data, fetch_yahoo_2yr,
+    fetch_yahoo_long, load_csv_provider,
 )
 from trading.backtest.backtester import run_backtest, walk_forward
 from trading.backtest.report import (
@@ -50,8 +51,14 @@ def save_results(result: dict, filepath: str):
 def load_data(args, instrument_key: str = None):
     """Load data based on CLI arguments."""
     if args.csv:
-        data = load_csv_data(args.csv)
+        data = load_csv_provider(args.csv)
         print(f"Loaded {len(data)} bars from {args.csv}")
+    elif args.long_history:
+        symbol = INSTRUMENTS[instrument_key]["symbol"] if instrument_key else "NQ=F"
+        years = args.history_years
+        print(f"Fetching {years}-year daily {symbol} data from Yahoo Finance...")
+        data = fetch_yahoo_long(symbol, years=years)
+        print(f"Fetched {len(data)} daily bars ({data['timestamp'].iloc[0].date()} to {data['timestamp'].iloc[-1].date()})")
     elif instrument_key and instrument_key in INSTRUMENTS:
         symbol = INSTRUMENTS[instrument_key]["symbol"]
         print(f"Fetching 2-year {symbol} data from Yahoo Finance...")
@@ -116,6 +123,10 @@ def main():
                         help="Number of Monte Carlo simulations (default: 1000)")
     parser.add_argument("--dashboard", action="store_true",
                         help="Launch web dashboard")
+    parser.add_argument("--long-history", action="store_true",
+                        help="Use 20-year daily data from Yahoo Finance")
+    parser.add_argument("--history-years", type=int, default=20,
+                        help="Years of daily history with --long-history (default: 20)")
 
     args = parser.parse_args()
 
