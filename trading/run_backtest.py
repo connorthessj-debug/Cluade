@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from trading.backtest.data_provider import (
     generate_synthetic_data, load_csv_data, fetch_yahoo_2yr,
-    fetch_yahoo_long, load_csv_provider,
+    fetch_yahoo_long, load_csv_provider, resample_bars,
 )
 from trading.backtest.backtester import run_backtest, walk_forward
 from trading.backtest.report import (
@@ -51,8 +51,12 @@ def save_results(result: dict, filepath: str):
 def load_data(args, instrument_key: str = None):
     """Load data based on CLI arguments."""
     if args.csv:
-        data = load_csv_provider(args.csv)
+        data = load_csv_provider(args.csv, provider=args.csv_format)
         print(f"Loaded {len(data)} bars from {args.csv}")
+        if args.resample:
+            before = len(data)
+            data = resample_bars(data, args.resample)
+            print(f"Resampled {before} -> {len(data)} bars at {args.resample}")
     elif args.long_history:
         symbol = INSTRUMENTS[instrument_key]["symbol"] if instrument_key else "NQ=F"
         years = args.history_years
@@ -127,6 +131,11 @@ def main():
                         help="Use 20-year daily data from Yahoo Finance")
     parser.add_argument("--history-years", type=int, default=20,
                         help="Years of daily history with --long-history (default: 20)")
+    parser.add_argument("--csv-format", type=str, default="auto",
+                        choices=["auto", "dukascopy", "firstrate", "polygon", "databento"],
+                        help="CSV provider format (default: auto-detect)")
+    parser.add_argument("--resample", type=str, default=None,
+                        help="Resample CSV to timeframe (e.g. '15min', '1h')")
 
     args = parser.parse_args()
 

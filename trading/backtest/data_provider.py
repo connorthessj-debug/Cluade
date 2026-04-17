@@ -380,35 +380,52 @@ def fetch_yahoo_long(symbol: str, years: int = 20,
 
 def load_csv_provider(filepath: str, provider: str = "auto") -> pd.DataFrame:
     """
-    Load OHLCV CSV from common paid data providers.
+    Load OHLCV CSV from common data providers.
 
     Supports:
+    - Dukascopy:     "Gmt time" or "Local time" col, DD.MM.YYYY HH:MM:SS.fff format
     - FirstRateData: columns "DateTime,Open,High,Low,Close,Volume"
     - Polygon.io:    columns "timestamp,open,high,low,close,volume"
     - Databento:     columns "ts_event,open,high,low,close,volume"
+    - HistData:      "DateTime,Open,High,Low,Close,Volume" (forex)
     - Generic:       any CSV with OHLCV columns (case-insensitive)
 
     Args:
         filepath: Path to CSV file
-        provider: "firstrate", "polygon", "databento", or "auto" (detect)
+        provider: "dukascopy", "firstrate", "polygon", "databento", or "auto"
 
     Returns:
         DataFrame with standardized [timestamp, open, high, low, close, volume]
     """
     df = pd.read_csv(filepath)
 
-    # Normalize column names (lowercase)
-    col_map = {c: c.lower().strip() for c in df.columns}
+    # Detect Dukascopy format BEFORE lowercase normalization
+    is_dukascopy = any(c in df.columns for c in ["Gmt time", "Local time"]) or provider == "dukascopy"
+
+    # Normalize column names (lowercase, strip spaces, unify)
+    col_map = {}
+    for c in df.columns:
+        key = c.lower().strip()
+        # Dukascopy uses "gmt time" or "local time"
+        if key in ("gmt time", "local time"):
+            key = "timestamp"
+        col_map[c] = key
     df = df.rename(columns=col_map)
 
     # Map timestamp column variants
     ts_aliases = ["timestamp", "datetime", "date", "ts_event", "time", "ts"]
     ts_col = next((c for c in ts_aliases if c in df.columns), None)
     if ts_col is None:
-        raise ValueError(f"No timestamp column found. Tried: {ts_aliases}")
+        raise ValueError(f"No timestamp column found. Tried: {ts_aliases}. Got: {list(df.columns)}")
 
     df = df.rename(columns={ts_col: "timestamp"})
-    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
+
+    # Dukascopy uses DD.MM.YYYY HH:MM:SS.fff (day-first, European)
+    if is_dukascopy:
+        df["timestamp"] = pd.to_datetime(df["timestamp"], format="%d.%m.%Y %H:%M:%S.%f",
+                                         utc=True, errors="coerce")
+    else:
+        df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
     df = df.dropna(subset=["timestamp"])
 
     required = ["open", "high", "low", "close", "volume"]
@@ -424,6 +441,38 @@ def load_csv_provider(filepath: str, provider: str = "auto") -> pd.DataFrame:
         df[c] = pd.to_numeric(df[c], errors="coerce")
 
     return df.dropna().reset_index(drop=True)
+
+
+def resample_bars(df: pd.DataFrame, interval: str = "15min") -> pd.DataFrame:
+    """
+    Resample OHLCV data to a different timeframe.
+
+    Use this to convert Dukascopy tick/1-min data into 15-min bars.
+
+    Args:
+        df: DataFrame with [timestamp, open, high, low, close, volume]
+        interval: Pandas offset alias ("1min", "5min", "15min", "1h", "1d")
+
+    Returns:
+        Resampled DataFrame
+
+    Example:
+        # Load Dukascopy 1-min data, resample to 15-min
+        df = load_csv_provider("NQ_1min_dukascopy.csv")
+        df15 = resample_bars(df, "15min")
+    """
+    df = df.copy()
+    df = df.set_index("timestamp")
+
+    resampled = df.resample(interval).agg({
+        "open":   "first",
+        "high":   "max",
+        "low":    "min",
+        "close":  "last",
+        "volume": "sum",
+    }).dropna()
+
+    return resampled.reset_index()
 
 
 
