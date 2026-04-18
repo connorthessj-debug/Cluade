@@ -7,6 +7,7 @@ __pycache__/
 # PHP
 vendor/
 composer.lock
+.phpunit.result.cache
 
 # Node
 node_modules/
