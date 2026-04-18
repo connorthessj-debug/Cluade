@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lebesianballs.local/schemas/content.schema.json",
+  "title": "Le Besian Balls Content",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["site", "hero", "menu", "packs", "about", "fulfillment", "social", "announcements"],
+  "properties": {
+    "site": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "tagline", "phone", "email"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "tagline": { "type": "string" },
+        "description": { "type": "string" },
+        "phone": { "type": "string", "minLength": 1 },
+        "email": { "type": "string", "format": "email" },
+        "address": { "type": "string" },
+        "url": { "type": "string" }
+      }
+    },
+    "hero": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["cta_text", "cta_link", "slides"],
+      "properties": {
+        "headline": { "type": "string" },
+        "subheadline": { "type": "string" },
+        "cta_text": { "type": "string", "minLength": 1 },
+        "cta_link": { "type": "string", "minLength": 1 },
+        "background_color": { "type": "string", "pattern": "^#[0-9a-fA-F]{3,8}$" },
+        "slides": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["title", "subtitle"],
+            "properties": {
+              "title": { "type": "string", "minLength": 1 },
+              "subtitle": { "type": "string" },
+              "bg_color": { "type": "string", "pattern": "^#[0-9a-fA-F]{3,8}$" }
+            }
+          }
+        }
+      }
+    },
+    "menu": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["classics", "weekly"],
+      "properties": {
+        "classics": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/menuItem" }
+        },
+        "weekly": {
+          "type": "object",
+          "required": ["week_label", "date_range", "items"],
+          "properties": {
+            "week_label": { "type": "string" },
+            "date_range": { "type": "string" },
+            "items": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/menuItem" }
+            }
+          }
+        }
+      }
+    },
+    "packs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "count", "discount", "description"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "count": { "type": "integer", "minimum": 1 },
+          "discount": { "type": "number", "minimum": 0, "maximum": 100 },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "about": {
+      "type": "object",
+      "required": ["title", "text"],
+      "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "text": { "type": "string", "minLength": 1 },
+        "image": { "type": "string" }
+      }
+    },
+    "fulfillment": {
+      "type": "object",
+      "required": ["pickup_address", "delivery_radius_miles", "delivery_fee", "free_delivery_minimum"],
+      "properties": {
+        "options": { "type": "array", "items": { "type": "string" } },
+        "pickup_address": { "type": "string", "minLength": 1 },
+        "delivery_radius_miles": { "type": "number", "minimum": 0 },
+        "delivery_fee": { "type": "number", "minimum": 0 },
+        "free_delivery_minimum": { "type": "number", "minimum": 0 }
+      }
+    },
+    "social": {
+      "type": "object",
+      "properties": {
+        "instagram": { "type": "string", "format": "uri" },
+        "facebook":  { "type": "string", "format": "uri" },
+        "tiktok":    { "type": "string", "format": "uri" }
+      }
+    },
+    "announcements": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "$defs": {
+    "menuItem": {
+      "type": "object",
+      "required": ["id", "name", "description", "price", "calories", "rating", "reviews", "available"],
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "pattern": "^[a-z0-9-]+$" },
+        "name": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "price": { "type": "number", "minimum": 0, "maximum": 1000 },
+        "calories": { "type": "integer", "minimum": 0 },
+        "image": { "type": "string" },
+        "rating": { "type": "number", "minimum": 0, "maximum": 5 },
+        "reviews": { "type": "integer", "minimum": 0 },
+        "available": { "type": "boolean" },
+        "tag": { "type": "string" }
+      }
+    }
+  }
+}

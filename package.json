@@ -1,0 +1,16 @@
+{
+  "name": "lebesianballs-cluade",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "jsdom": "^25.0.1",
+    "vitest": "^2.1.8"
+  }
+}

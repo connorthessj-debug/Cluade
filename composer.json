@@ -1,0 +1,16 @@
+{
+  "name": "lebesianballs/cluade",
+  "description": "Le Besian Balls — website and admin tools",
+  "type": "project",
+  "require-dev": {
+    "phpunit/phpunit": "^10.5"
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Tests\\": "tests/php/"
+    }
+  },
+  "scripts": {
+    "test": "phpunit"
+  }
+}

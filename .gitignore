@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+
+# PHP
+vendor/
+composer.lock
+
+# Node
+node_modules/
+package-lock.json
+npm-debug.log
+
+# Editors
+.vscode/
+.idea/
+.DS_Store
+
+# Generated
+schedule_options.xlsx
+data/backups/
