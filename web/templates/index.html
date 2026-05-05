@@ -1,0 +1,623 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0f1e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/manifest.json">
+  <title>trading-ops</title>
+  <style>
+    :root {
+      --bg: #0a0f1e;
+      --bg-2: #111a2e;
+      --bg-3: #1a2540;
+      --fg: #e5e7eb;
+      --muted: #94a3b8;
+      --amber: #f59e0b;
+      --amber-dim: #b97309;
+      --green: #22c55e;
+      --red: #ef4444;
+      --blue: #3b82f6;
+      --border: #1e293b;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+      overscroll-behavior-y: none;
+    }
+    body {
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: calc(64px + env(safe-area-inset-bottom));
+      min-height: 100vh;
+    }
+    header {
+      position: sticky; top: 0; z-index: 10;
+      background: var(--bg-2);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 14px;
+      padding-top: calc(10px + env(safe-area-inset-top));
+      display: flex; align-items: center; gap: 10px;
+    }
+    .logo { color: var(--amber); font-weight: 700; letter-spacing: 0.5px; }
+    .subtitle { color: var(--muted); font-size: 11px; }
+    .pill {
+      margin-left: auto;
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--bg-3);
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .pill.live { color: var(--green); }
+    .pill.dead { color: var(--red); }
+
+    nav.tabs {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      background: var(--bg-2);
+      border-top: 1px solid var(--border);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    nav.tabs button {
+      background: transparent;
+      border: 0;
+      color: var(--muted);
+      padding: 14px 4px;
+      font-family: inherit;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    nav.tabs button.active { color: var(--amber); border-top: 2px solid var(--amber); }
+
+    main { padding: 14px; }
+    .panel {
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-bottom: 14px;
+      overflow: hidden;
+    }
+    .panel h2 {
+      margin: 0;
+      padding: 8px 12px;
+      font-size: 11px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--amber);
+      background: var(--bg-3);
+      border-bottom: 1px solid var(--border);
+    }
+    .panel .body { padding: 12px; }
+
+    .input-row { display: flex; gap: 8px; }
+    input[type=text] {
+      flex: 1;
+      background: var(--bg-3);
+      border: 1px solid var(--border);
+      color: var(--fg);
+      padding: 14px 12px;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 16px;
+      text-transform: uppercase;
+      outline: none;
+    }
+    input[type=text]:focus { border-color: var(--amber); }
+    button.primary, button.chip {
+      background: var(--amber);
+      color: #000;
+      border: 0;
+      padding: 14px 18px;
+      border-radius: 4px;
+      font-family: inherit;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      letter-spacing: 0.5px;
+    }
+    button.primary:active { background: var(--amber-dim); }
+    button.chip {
+      background: var(--bg-3);
+      color: var(--fg);
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    button.chip:active { background: var(--amber); color: #000; }
+
+    .signal-row {
+      display: grid;
+      grid-template-columns: 1fr 64px 60px;
+      gap: 8px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .signal-row:last-child { border-bottom: 0; }
+    .signal-row .dim { color: var(--muted); text-transform: uppercase; font-size: 11px; }
+    .signal-row .sig { font-weight: 600; text-align: right; }
+    .signal-row .score { text-align: right; font-variant-numeric: tabular-nums; }
+    .bull { color: var(--green); }
+    .bear { color: var(--red); }
+    .neutral { color: var(--muted); }
+    .composite {
+      margin-top: 10px;
+      padding: 10px 12px;
+      background: var(--bg-3);
+      border-radius: 4px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .composite .label { font-size: 11px; color: var(--muted); text-transform: uppercase; }
+    .composite .value { font-size: 18px; font-weight: 700; color: var(--amber); }
+
+    .ladder pre {
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--fg);
+      overflow-x: auto;
+      white-space: pre;
+    }
+
+    .kv { display: grid; grid-template-columns: 110px 1fr; gap: 4px 10px; font-size: 13px; }
+    .kv .k { color: var(--muted); }
+    .kv .v { font-weight: 600; }
+
+    .news-item {
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .news-item:last-child { border-bottom: 0; }
+    .news-item a { color: var(--fg); text-decoration: none; }
+    .news-item .meta { color: var(--muted); font-size: 11px; margin-top: 2px; }
+
+    .history-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+    }
+    .history-item:active { background: var(--bg-3); }
+    .history-item .left .sym { font-weight: 700; color: var(--amber); }
+    .history-item .left .meta { color: var(--muted); font-size: 11px; margin-top: 2px; }
+    .history-item .conv { font-size: 11px; padding: 4px 8px; border-radius: 4px; background: var(--bg-3); }
+
+    .loading {
+      text-align: center;
+      padding: 24px 12px;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 1px;
+    }
+    .loading::after {
+      content: " ⠋";
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { content: " ⠋"; }
+      12% { content: " ⠙"; }
+      25% { content: " ⠹"; }
+      37% { content: " ⠸"; }
+      50% { content: " ⠼"; }
+      62% { content: " ⠴"; }
+      75% { content: " ⠦"; }
+      87% { content: " ⠧"; }
+      100% { content: " ⠇"; }
+    }
+    .error {
+      color: var(--red);
+      padding: 12px;
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid var(--red);
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    .hidden { display: none !important; }
+
+    .regime-banner {
+      padding: 14px;
+      text-align: center;
+      letter-spacing: 1.5px;
+      font-weight: 700;
+      font-size: 16px;
+      border-radius: 4px;
+      margin-bottom: 12px;
+    }
+    .regime-GOLDILOCKS { background: rgba(34, 197, 94, 0.15); color: var(--green); }
+    .regime-REFLATION  { background: rgba(245, 158, 11, 0.15); color: var(--amber); }
+    .regime-STAGFLATION { background: rgba(239, 68, 68, 0.15); color: var(--red); }
+    .regime-RISK-OFF   { background: rgba(59, 130, 246, 0.15); color: var(--blue); }
+    .regime-UNKNOWN    { background: var(--bg-3); color: var(--muted); }
+
+    .markdown-view {
+      font-size: 13px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .back-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--amber);
+      padding: 8px 14px;
+      border-radius: 4px;
+      font-family: inherit;
+      cursor: pointer;
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <span class="logo">trading-ops</span>
+    <span class="subtitle">AI Bloomberg Terminal</span>
+    <span id="health-pill" class="pill">…</span>
+  </header>
+
+  <main>
+    <!-- SCAN VIEW -->
+    <section id="view-scan">
+      <div class="panel">
+        <h2>Scan</h2>
+        <div class="body">
+          <form id="scan-form" class="input-row" autocomplete="off">
+            <input type="text" id="symbol" placeholder="AAPL · BTCUSDT · EURUSD · MACRO" autocapitalize="characters" />
+            <button class="primary" type="submit">SCAN</button>
+          </form>
+          <div class="chips">
+            <button class="chip" data-sym="SPX">SPX</button>
+            <button class="chip" data-sym="AAPL">AAPL</button>
+            <button class="chip" data-sym="NVDA">NVDA</button>
+            <button class="chip" data-sym="TSLA">TSLA</button>
+            <button class="chip" data-sym="BTCUSDT">BTC</button>
+            <button class="chip" data-sym="ETHUSDT">ETH</button>
+            <button class="chip" data-sym="EURUSD">EURUSD</button>
+            <button class="chip" data-sym="MACRO">MACRO</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="scan-status" class="hidden"></div>
+      <div id="scan-result"></div>
+    </section>
+
+    <!-- MACRO VIEW -->
+    <section id="view-macro" class="hidden">
+      <div class="panel">
+        <h2>Macro Regime</h2>
+        <div class="body">
+          <div id="macro-status" class="loading">FETCHING FRED</div>
+          <div id="macro-content" class="hidden"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- NEWS VIEW -->
+    <section id="view-news" class="hidden">
+      <div class="panel">
+        <h2>News</h2>
+        <div class="body">
+          <div id="news-status" class="loading">FETCHING</div>
+          <div id="news-content" class="hidden"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HISTORY VIEW -->
+    <section id="view-history" class="hidden">
+      <div class="panel">
+        <h2>Saved Scans</h2>
+        <div class="body" style="padding: 0;">
+          <div id="history-status" class="loading">LOADING</div>
+          <div id="history-list" class="hidden"></div>
+        </div>
+      </div>
+      <div id="history-detail" class="hidden">
+        <button class="back-btn" id="history-back">← Back</button>
+        <div class="panel"><div class="body markdown-view" id="history-detail-body"></div></div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabs">
+    <button data-view="scan" class="active">Scan</button>
+    <button data-view="macro">Macro</button>
+    <button data-view="news">News</button>
+    <button data-view="history">History</button>
+  </nav>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const fmt = (v, d = 2) => (v == null || isNaN(v)) ? "—" : Number(v).toFixed(d);
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, opts);
+  if (r.status === 401) {
+    alert("Authentication required. Reload and enter credentials.");
+    throw new Error("auth");
+  }
+  if (!r.ok) {
+    const text = await r.text();
+    throw new Error(text || ("HTTP " + r.status));
+  }
+  return r.json();
+}
+
+function setView(name) {
+  for (const v of ["scan", "macro", "news", "history"]) {
+    $("view-" + v).classList.toggle("hidden", v !== name);
+  }
+  document.querySelectorAll("nav.tabs button").forEach(b => {
+    b.classList.toggle("active", b.dataset.view === name);
+  });
+  if (name === "macro") loadMacro();
+  if (name === "news") loadNews();
+  if (name === "history") loadHistory();
+}
+
+function signalClass(score) {
+  if (typeof score === "string") {
+    if (score.startsWith("+")) return "bull";
+    if (score.startsWith("-")) return "bear";
+  }
+  if (score > 0) return "bull";
+  if (score < 0) return "bear";
+  return "neutral";
+}
+
+function convictionClass(c) {
+  if (!c) return "neutral";
+  c = c.toUpperCase();
+  if (c.includes("LONG")) return "bull";
+  if (c.includes("SHORT")) return "bear";
+  return "neutral";
+}
+
+function renderScanResult(data) {
+  if (data.error) {
+    return `<div class="error">${data.error}</div>`;
+  }
+  const signals = data.signals || {};
+  const scores = data.scores || {};
+  const total = data.total_score ?? 0;
+  const conviction = data.conviction || "?";
+  const metrics = data.key_metrics || {};
+  const vp = metrics.volume_profile || {};
+
+  let html = `<div class="panel"><h2>${data.symbol} · ${data.asset_class}</h2><div class="body">`;
+
+  for (const [dim, sig] of Object.entries(signals)) {
+    const sc = scores[dim];
+    const scoreStr = (sc > 0 ? "+" : "") + (sc ?? 0);
+    html += `<div class="signal-row">
+      <div class="dim">${dim.replace(/_/g, " ")}</div>
+      <div class="sig ${signalClass(sc)}">${sig}</div>
+      <div class="score ${signalClass(sc)}">${scoreStr}</div>
+    </div>`;
+  }
+
+  html += `<div class="composite">
+    <div><div class="label">Composite</div><div class="value">${total}</div></div>
+    <div style="text-align:right"><div class="label">Conviction</div><div class="value ${convictionClass(conviction)}">${conviction}</div></div>
+  </div>`;
+  html += `</div></div>`;
+
+  if (vp && vp.poc != null) {
+    html += `<div class="panel"><h2>Price Ladder</h2><div class="body ladder"><pre>`;
+    const rows = [
+      ["52W High", metrics.week52_high],
+      ["VAH", vp.vah],
+      ["POC ←", vp.poc],
+      ["VAL", vp.val],
+      ["52W Low", metrics.week52_low],
+    ];
+    for (const [k, v] of rows) {
+      if (v != null) html += `${k.padEnd(10)} ${fmt(v)}\n`;
+    }
+    if (metrics.current_price != null) {
+      html += `\nCURRENT  ${fmt(metrics.current_price)}`;
+    }
+    html += `</pre></div></div>`;
+  }
+
+  const kvFields = [
+    ["current_price", "Price"],
+    ["week52_high", "52W High"],
+    ["week52_low", "52W Low"],
+    ["rsi_14", "RSI(14)"],
+    ["sma_50", "SMA50"],
+    ["sma_200", "SMA200"],
+    ["atr_14", "ATR(14)"],
+    ["pe_forward", "Fwd P/E"],
+    ["funding_rate_pct", "Funding %"],
+    ["fear_greed", "F&G"],
+    ["cot_index_52w", "COT Idx"],
+  ];
+  let kvHtml = "";
+  for (const [k, label] of kvFields) {
+    const v = metrics[k];
+    if (v != null && v !== "") kvHtml += `<div class="k">${label}</div><div class="v">${typeof v === "number" ? fmt(v) : v}</div>`;
+  }
+  if (kvHtml) {
+    html += `<div class="panel"><h2>Key Metrics</h2><div class="body"><div class="kv">${kvHtml}</div></div></div>`;
+  }
+
+  if (data._saved_filename) {
+    html += `<div class="loading" style="text-align:left">saved → ${data._saved_filename}</div>`;
+  }
+  return html;
+}
+
+async function runScan(symbol) {
+  $("scan-status").classList.remove("hidden");
+  $("scan-status").className = "loading";
+  $("scan-status").textContent = `SCANNING ${symbol}`;
+  $("scan-result").innerHTML = "";
+  try {
+    const data = await api("/api/scan", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({symbol}),
+    });
+    $("scan-status").classList.add("hidden");
+    $("scan-result").innerHTML = renderScanResult(data);
+  } catch (e) {
+    $("scan-status").className = "error";
+    $("scan-status").textContent = "Scan failed: " + e.message;
+  }
+}
+
+async function loadMacro() {
+  $("macro-status").classList.remove("hidden");
+  $("macro-content").classList.add("hidden");
+  try {
+    const d = await api("/api/macro");
+    if (d.error) {
+      $("macro-status").className = "error";
+      $("macro-status").textContent = d.error;
+      return;
+    }
+    const ind = d.indicators || {};
+    const fields = [
+      ["10Y", ind.yield_10y, "%"],
+      ["2Y", ind.yield_2y, "%"],
+      ["10Y-2Y", ind.yield_spread_10y_2y, "%"],
+      ["CPI YoY", ind.cpi_yoy, "%"],
+      ["5Y BE Inflation", ind.breakeven_5y, "%"],
+      ["VIX", ind.vix, ""],
+      ["HY Spread", ind.hy_spread, "%"],
+      ["Unemployment", ind.unemployment, "%"],
+    ];
+    let kv = "";
+    for (const [k, v, suffix] of fields) {
+      if (v != null) kv += `<div class="k">${k}</div><div class="v">${fmt(v)}${suffix}</div>`;
+    }
+    const regime = (d.regime || "UNKNOWN").toUpperCase();
+    $("macro-content").innerHTML = `
+      <div class="regime-banner regime-${regime}">${regime}</div>
+      <div class="kv">${kv}</div>
+      <div class="loading" style="text-align:left">growth: ${d.growth_signal} · inflation: ${d.inflation_signal}</div>
+    `;
+    $("macro-status").classList.add("hidden");
+    $("macro-content").classList.remove("hidden");
+  } catch (e) {
+    $("macro-status").className = "error";
+    $("macro-status").textContent = "Macro load failed: " + e.message;
+  }
+}
+
+async function loadNews() {
+  $("news-status").classList.remove("hidden");
+  $("news-content").classList.add("hidden");
+  try {
+    const d = await api("/api/news?query=markets");
+    let html = "";
+    const headlines = d.headlines || [];
+    for (const h of headlines.slice(0, 20)) {
+      html += `<div class="news-item">
+        <a href="${h.link}" target="_blank" rel="noopener">${h.title}</a>
+        <div class="meta">${h.source || ""} · ${h.published || ""}</div>
+      </div>`;
+    }
+    if (!html) html = `<div class="loading" style="text-align:left">No headlines.</div>`;
+    $("news-content").innerHTML = html;
+    $("news-status").classList.add("hidden");
+    $("news-content").classList.remove("hidden");
+  } catch (e) {
+    $("news-status").className = "error";
+    $("news-status").textContent = "News load failed: " + e.message;
+  }
+}
+
+async function loadHistory() {
+  $("history-detail").classList.add("hidden");
+  $("history-list").classList.add("hidden");
+  $("history-status").classList.remove("hidden");
+  try {
+    const d = await api("/api/history");
+    let html = "";
+    for (const item of d.scans || []) {
+      html += `<div class="history-item" data-file="${item.filename}">
+        <div class="left">
+          <div class="sym">${item.symbol}</div>
+          <div class="meta">${item.date} · ${item.asset_class}</div>
+        </div>
+        <div class="conv ${convictionClass(item.conviction)}">${item.conviction}</div>
+      </div>`;
+    }
+    if (!html) html = `<div class="loading" style="text-align:left; padding:14px;">No saved scans yet.</div>`;
+    $("history-list").innerHTML = html;
+    $("history-status").classList.add("hidden");
+    $("history-list").classList.remove("hidden");
+    $("history-list").querySelectorAll(".history-item").forEach(el => {
+      el.addEventListener("click", () => loadHistoryDetail(el.dataset.file));
+    });
+  } catch (e) {
+    $("history-status").className = "error";
+    $("history-status").textContent = "History load failed: " + e.message;
+  }
+}
+
+async function loadHistoryDetail(filename) {
+  try {
+    const d = await api("/api/history/" + encodeURIComponent(filename));
+    $("history-detail-body").textContent = d.markdown || "(empty)";
+    $("history-list").classList.add("hidden");
+    $("history-detail").classList.remove("hidden");
+  } catch (e) {
+    alert("Failed to load: " + e.message);
+  }
+}
+
+async function checkHealth() {
+  try {
+    const d = await api("/api/health");
+    const pill = $("health-pill");
+    if (d.fred_key_set) {
+      pill.textContent = "LIVE";
+      pill.className = "pill live";
+    } else {
+      pill.textContent = "NO FRED KEY";
+      pill.className = "pill dead";
+    }
+  } catch {
+    $("health-pill").textContent = "OFFLINE";
+    $("health-pill").className = "pill dead";
+  }
+}
+
+document.querySelectorAll("nav.tabs button").forEach(b => {
+  b.addEventListener("click", () => setView(b.dataset.view));
+});
+document.querySelectorAll(".chip").forEach(c => {
+  c.addEventListener("click", () => {
+    $("symbol").value = c.dataset.sym;
+    runScan(c.dataset.sym);
+  });
+});
+$("scan-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const sym = $("symbol").value.trim().toUpperCase();
+  if (sym) runScan(sym);
+});
+$("history-back").addEventListener("click", () => {
+  $("history-detail").classList.add("hidden");
+  $("history-list").classList.remove("hidden");
+});
+
+checkHealth();
+</script>
+</body>
+</html>

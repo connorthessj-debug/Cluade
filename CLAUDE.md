@@ -13,10 +13,21 @@ Cluade/
 ├── CLAUDE.md              # AI assistant guidance (this file)
 ├── README.md              # Project description
 ├── app.py                 # Desktop app entry point (Textual TUI)
-├── trading-ops.bat        # Windows launcher
-├── trading-ops.sh         # Linux/macOS launcher
-├── requirements-app.txt   # App dependencies (textual + python-dotenv)
-├── .env.example           # Template for FRED_API_KEY (.env is gitignored)
+├── trading-ops.bat        # Windows launcher (TUI)
+├── trading-ops.sh         # Linux/macOS launcher (TUI)
+├── web-start.bat          # Windows launcher (mobile web)
+├── web-start.sh           # Linux/macOS launcher (mobile web)
+├── requirements-app.txt   # TUI dependencies (textual + python-dotenv)
+├── requirements-web.txt   # Web dependencies (fastapi + uvicorn + jinja2)
+├── Dockerfile             # Container build for cloud deploy
+├── render.yaml            # Render.com one-click blueprint
+├── fly.toml               # Fly.io deploy config
+├── DEPLOY.md              # Mobile/cloud deployment guide
+├── .env.example           # Template for FRED_API_KEY + ACCESS_PASSWORD
+├── web/                   # FastAPI mobile web server
+│   ├── server.py                  # API endpoints + auth
+│   ├── templates/index.html       # Mobile-first PWA UI
+│   └── static/                    # Icons
 ├── ui/                    # Desktop app UI (Textual screens + widgets)
 │   ├── theme.py                   # Bloomberg color palette
 │   ├── styles.tcss                # Textual CSS (layout + colors)
@@ -89,8 +100,23 @@ Cluade/
 ```bash
 pip install -r scripts/requirements.txt
 pip install -r requirements-app.txt   # adds textual + python-dotenv for the desktop app
+pip install -r requirements-web.txt   # adds fastapi + uvicorn for the mobile web app
 cp .env.example .env                  # then edit .env to add FRED_API_KEY
 ```
+
+### Launch the Mobile Web App (phone access)
+```bash
+# Linux / macOS
+./web-start.sh
+
+# Windows
+web-start.bat
+```
+Opens at http://localhost:8000 and on your LAN at http://<your-pc-ip>:8000.
+For internet access from work, see DEPLOY.md (Render/Fly/Cloudflare Tunnel).
+Set ACCESS_PASSWORD in .env to enable HTTP Basic auth (REQUIRED for any
+internet-facing deploy). The web app exposes the same scan logic as the
+desktop TUI; both share core/ and scripts/.
 
 ### Launch the Desktop App (AI Bloomberg Terminal)
 ```bash

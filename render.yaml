@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: trading-ops
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: FRED_API_KEY
+        sync: false
+      - key: ACCESS_USER
+        value: trader
+      - key: ACCESS_PASSWORD
+        sync: false
+      - key: PYTHONUNBUFFERED
+        value: "1"
