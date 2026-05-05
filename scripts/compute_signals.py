@@ -107,8 +107,20 @@ def score_equity(symbol):
     form4_count = insider.get("form4_count_last_90d", 0)
     short_pct = equity.get("positioning", {}).get("short_percent_of_float")
     inst_pct = equity.get("positioning", {}).get("held_percent_institutions")
-    signals["insider_institutional"] = "NEUTRAL"
-    scores["insider_institutional"] = 0
+    inst_pct_val = inst_pct if inst_pct else 0
+
+    if form4_count >= 3 and inst_pct_val > 0.7:
+        signals["insider_institutional"] = "BULL (cluster buying + high inst ownership)"
+        scores["insider_institutional"] = 1
+    elif form4_count == 0 and (short_pct is not None and short_pct > 0.3):
+        signals["insider_institutional"] = "BEAR (no insider buying, high short interest)"
+        scores["insider_institutional"] = -1
+    elif form4_count >= 1:
+        signals["insider_institutional"] = "NEUTRAL (some Form 4 activity)"
+        scores["insider_institutional"] = 0
+    else:
+        signals["insider_institutional"] = "INSUFFICIENT_DATA"
+        scores["insider_institutional"] = 0
 
     # Pillar 5: Options
     opts = options.get("summary", {})

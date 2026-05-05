@@ -6,6 +6,7 @@ Output: JSON to stdout
 Free API — no key required.
 """
 
+import re
 import sys
 import json
 import datetime
@@ -33,8 +34,6 @@ def find_cik(symbol):
     hits = data.get("hits", {}).get("hits", [])
     for hit in hits:
         src = hit.get("_source", {})
-        ticker = src.get("period_of_report", "")
-        entity = src.get("entity_name", "")
         cik = src.get("file_num", "") or hit.get("_id", "").split(":")[0]
         tickers = src.get("tickers", []) or []
         if symbol.upper() in [t.upper() for t in tickers]:
@@ -47,7 +46,6 @@ def find_cik(symbol):
         timeout=15,
     )
     if resp2.status_code == 200:
-        import re
         match = re.search(r'CIK=(\d+)', resp2.text)
         if match:
             return match.group(1).lstrip("0")
