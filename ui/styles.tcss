@@ -1,0 +1,200 @@
+/* trading-ops — AI Bloomberg Terminal styling */
+
+Screen {
+    background: #0a0f1e;
+    color: #e2e8f0;
+}
+
+Header {
+    background: #0d1526;
+    color: #f59e0b;
+    text-style: bold;
+}
+
+Footer {
+    background: #0d1526;
+    color: #94a3b8;
+}
+
+#main-grid {
+    layout: grid;
+    grid-size: 3 5;
+    grid-rows: 5 1fr 7 3 3;
+    grid-columns: 22 1fr 28;
+    grid-gutter: 0 0;
+    background: #0a0f1e;
+}
+
+#macro-panel {
+    column-span: 3;
+    background: #0d1526;
+    border: solid #f59e0b;
+    padding: 0 1;
+    height: 5;
+}
+
+#watchlist-panel {
+    background: #0d1526;
+    border: solid #1e3a5f;
+    padding: 0 1;
+}
+
+#scan-panel {
+    background: #0d1526;
+    border: solid #1e3a5f;
+    padding: 0 1;
+    overflow-y: auto;
+}
+
+#history-panel {
+    background: #0d1526;
+    border: solid #1e3a5f;
+    padding: 0 1;
+}
+
+#audit-panel {
+    column-span: 3;
+    background: #0d1526;
+    border: solid #1e3a5f;
+    padding: 0 1;
+    height: 7;
+    overflow-y: auto;
+}
+
+#news-ticker {
+    column-span: 3;
+    background: #0d1526;
+    border: solid #1e3a5f;
+    padding: 0 1;
+    height: 3;
+    color: #94a3b8;
+}
+
+#scan-input-row {
+    column-span: 3;
+    background: #0d1526;
+    border: solid #f59e0b;
+    height: 3;
+    padding: 0 1;
+}
+
+Input {
+    background: #0a0f1e;
+    color: #e2e8f0;
+    border: solid #f59e0b;
+}
+
+Input:focus {
+    border: solid #fbbf24;
+}
+
+DataTable {
+    background: #0d1526;
+    color: #e2e8f0;
+}
+
+DataTable > .datatable--header {
+    background: #1e3a5f;
+    color: #f59e0b;
+    text-style: bold;
+}
+
+DataTable > .datatable--cursor {
+    background: #162040;
+    color: #f59e0b;
+}
+
+DataTable > .datatable--hover {
+    background: #162040;
+}
+
+ListView {
+    background: #0d1526;
+    border: none;
+}
+
+ListItem {
+    background: #0d1526;
+    color: #e2e8f0;
+    padding: 0 1;
+}
+
+ListItem:hover {
+    background: #162040;
+}
+
+ListItem.--highlight {
+    background: #162040;
+    color: #f59e0b;
+}
+
+.title {
+    color: #f59e0b;
+    text-style: bold;
+    background: #0d1526;
+}
+
+.dim {
+    color: #94a3b8;
+}
+
+.bull {
+    color: #22c55e;
+}
+
+.bear {
+    color: #ef4444;
+}
+
+.neutral {
+    color: #fbbf24;
+}
+
+.regime-goldilocks {
+    color: #22c55e;
+    text-style: bold;
+}
+
+.regime-reflation {
+    color: #f59e0b;
+    text-style: bold;
+}
+
+.regime-stagflation {
+    color: #ef4444;
+    text-style: bold;
+}
+
+.regime-risk-off {
+    color: #3b82f6;
+    text-style: bold;
+}
+
+#status-line {
+    color: #f59e0b;
+    background: #0d1526;
+    padding: 0 1;
+}
+
+LoadingIndicator {
+    color: #f59e0b;
+}
+
+Static {
+    background: transparent;
+}
+
+Markdown {
+    background: #0a0f1e;
+    color: #e2e8f0;
+}
+
+ScanDetailScreen {
+    background: #0a0f1e;
+}
+
+#detail-body {
+    padding: 1 2;
+    background: #0d1526;
+    border: solid #1e3a5f;
+}

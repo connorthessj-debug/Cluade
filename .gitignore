@@ -1,0 +1,8 @@
+.env
+*.pyc
+__pycache__/
+*.egg-info/
+.venv/
+venv/
+watchlist.json
+.DS_Store

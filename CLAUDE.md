@@ -12,6 +12,22 @@ This file provides guidance for AI assistants (and developers) working in this r
 Cluade/
 ├── CLAUDE.md              # AI assistant guidance (this file)
 ├── README.md              # Project description
+├── app.py                 # Desktop app entry point (Textual TUI)
+├── trading-ops.bat        # Windows launcher
+├── trading-ops.sh         # Linux/macOS launcher
+├── requirements-app.txt   # App dependencies (textual + python-dotenv)
+├── .env.example           # Template for FRED_API_KEY (.env is gitignored)
+├── ui/                    # Desktop app UI (Textual screens + widgets)
+│   ├── theme.py                   # Bloomberg color palette
+│   ├── styles.tcss                # Textual CSS (layout + colors)
+│   ├── screens/                   # main_screen, scan_detail_screen
+│   └── widgets/                   # macro/watchlist/scan/news/history/audit panels
+├── core/                  # Async business logic for the desktop app
+│   ├── scanner.py                 # subprocess wrapper around compute_signals.py
+│   ├── scan_parser.py             # parses scanned/*.md back into structured dicts
+│   ├── macro_monitor.py           # background FRED polling
+│   ├── news_feed.py               # background news polling
+│   └── asset_class.py             # symbol → asset class detection
 ├── docs/                  # READ-ONLY knowledge base — never edit during scans
 │   ├── macro-framework.md         # 4 regime quadrants + asset playbook
 │   ├── equity-fundamentals.md     # 6-pillar scoring framework
@@ -72,8 +88,24 @@ Cluade/
 ### Trading System Setup
 ```bash
 pip install -r scripts/requirements.txt
-export FRED_API_KEY=your_free_key_here   # get at fred.stlouisfed.org
+pip install -r requirements-app.txt   # adds textual + python-dotenv for the desktop app
+cp .env.example .env                  # then edit .env to add FRED_API_KEY
 ```
+
+### Launch the Desktop App (AI Bloomberg Terminal)
+```bash
+# Windows
+trading-ops.bat
+
+# Linux / macOS
+./trading-ops.sh
+
+# Or directly
+python3 app.py
+```
+
+The app provides: macro regime banner, watchlist, scan panel (signals + ASCII price ladder + trade table),
+scan history, self-improvement audit log, and live news ticker.
 
 ### Run a Scan (Claude Code slash commands)
 ```
