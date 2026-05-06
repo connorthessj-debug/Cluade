@@ -10,6 +10,7 @@ import json
 import datetime
 import subprocess
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -18,7 +19,7 @@ def run_script(script_name, *args):
     script_path = os.path.join(SCRIPTS_DIR, script_name)
     try:
         result = subprocess.run(
-            ["python3", script_path, *args],
+            [sys.executable, script_path, *args],
             capture_output=True,
             text=True,
             timeout=60,
@@ -35,12 +36,29 @@ def run_script(script_name, *args):
         return {"error": str(e)}
 
 
+def run_parallel(*calls):
+    """Run multiple (script_name, *args) calls concurrently. Returns dict keyed by script_name."""
+    results = {}
+    with ThreadPoolExecutor(max_workers=len(calls)) as pool:
+        futures = {pool.submit(run_script, name, *args): name for name, *args in calls}
+        for future in as_completed(futures):
+            results[futures[future]] = future.result()
+    return results
+
+
 def score_equity(symbol):
-    equity = run_script("fetch_equity.py", symbol)
-    edgar = run_script("fetch_edgar.py", symbol)
-    options = run_script("fetch_options.py", symbol)
-    news = run_script("fetch_news.py", symbol)
-    fred = run_script("fetch_fred.py")
+    data = run_parallel(
+        ("fetch_equity.py", symbol),
+        ("fetch_edgar.py", symbol),
+        ("fetch_options.py", symbol),
+        ("fetch_news.py", symbol),
+        ("fetch_fred.py",),
+    )
+    equity = data["fetch_equity.py"]
+    edgar = data["fetch_edgar.py"]
+    options = data["fetch_options.py"]
+    news = data["fetch_news.py"]
+    fred = data["fetch_fred.py"]
 
     signals = {}
     scores = {}
@@ -208,9 +226,14 @@ def score_equity(symbol):
 
 
 def score_crypto(symbol):
-    crypto = run_script("fetch_crypto.py", symbol)
-    binance = run_script("fetch_binance.py", symbol)
-    news = run_script("fetch_news.py", symbol)
+    data = run_parallel(
+        ("fetch_crypto.py", symbol),
+        ("fetch_binance.py", symbol),
+        ("fetch_news.py", symbol),
+    )
+    crypto = data["fetch_crypto.py"]
+    binance = data["fetch_binance.py"]
+    news = data["fetch_news.py"]
 
     signals = {}
     scores = {}
@@ -298,9 +321,14 @@ def score_crypto(symbol):
 
 
 def score_forex(symbol):
-    cot = run_script("fetch_cot.py", symbol)
-    fred = run_script("fetch_fred.py")
-    news = run_script("fetch_news.py", symbol)
+    data = run_parallel(
+        ("fetch_cot.py", symbol),
+        ("fetch_fred.py",),
+        ("fetch_news.py", symbol),
+    )
+    cot = data["fetch_cot.py"]
+    fred = data["fetch_fred.py"]
+    news = data["fetch_news.py"]
 
     signals = {}
     scores = {}

@@ -20,6 +20,7 @@
       --green: #22c55e;
       --red: #ef4444;
       --blue: #3b82f6;
+      --purple: #a855f7;
       --border: #1e293b;
     }
     * { box-sizing: border-box; }
@@ -49,11 +50,9 @@
     .subtitle { color: var(--muted); font-size: 11px; }
     .pill {
       margin-left: auto;
-      font-size: 10px;
-      padding: 3px 8px;
+      font-size: 10px; padding: 3px 8px;
       border-radius: 999px;
-      background: var(--bg-3);
-      color: var(--muted);
+      background: var(--bg-3); color: var(--muted);
       white-space: nowrap;
     }
     .pill.live { color: var(--green); }
@@ -67,196 +66,178 @@
       padding-bottom: env(safe-area-inset-bottom);
     }
     nav.tabs button {
-      background: transparent;
-      border: 0;
+      background: transparent; border: 0;
       color: var(--muted);
       padding: 14px 4px;
-      font-family: inherit;
-      font-size: 11px;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      cursor: pointer;
+      font-family: inherit; font-size: 11px;
+      letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer;
     }
     nav.tabs button.active { color: var(--amber); border-top: 2px solid var(--amber); }
 
     main { padding: 14px; }
     .panel {
-      background: var(--bg-2);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      margin-bottom: 14px;
-      overflow: hidden;
+      background: var(--bg-2); border: 1px solid var(--border);
+      border-radius: 6px; margin-bottom: 14px; overflow: hidden;
     }
     .panel h2 {
-      margin: 0;
-      padding: 8px 12px;
-      font-size: 11px;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      color: var(--amber);
-      background: var(--bg-3);
+      margin: 0; padding: 8px 12px;
+      font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+      color: var(--amber); background: var(--bg-3);
       border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .panel h2 .badge {
+      margin-left: auto; font-size: 9px; padding: 2px 6px;
+      border-radius: 3px; background: rgba(245,158,11,0.15);
+      color: var(--amber); letter-spacing: 0;
     }
     .panel .body { padding: 12px; }
 
     .input-row { display: flex; gap: 8px; }
     input[type=text] {
-      flex: 1;
-      background: var(--bg-3);
-      border: 1px solid var(--border);
-      color: var(--fg);
-      padding: 14px 12px;
-      border-radius: 4px;
-      font-family: inherit;
-      font-size: 16px;
-      text-transform: uppercase;
-      outline: none;
+      flex: 1; background: var(--bg-3); border: 1px solid var(--border);
+      color: var(--fg); padding: 14px 12px; border-radius: 4px;
+      font-family: inherit; font-size: 16px; text-transform: uppercase; outline: none;
     }
     input[type=text]:focus { border-color: var(--amber); }
-    button.primary, button.chip {
-      background: var(--amber);
-      color: #000;
-      border: 0;
-      padding: 14px 18px;
-      border-radius: 4px;
-      font-family: inherit;
-      font-weight: 700;
-      font-size: 14px;
-      cursor: pointer;
-      letter-spacing: 0.5px;
+    button.primary {
+      background: var(--amber); color: #000; border: 0;
+      padding: 14px 18px; border-radius: 4px;
+      font-family: inherit; font-weight: 700; font-size: 14px;
+      cursor: pointer; letter-spacing: 0.5px;
     }
     button.primary:active { background: var(--amber-dim); }
     button.chip {
-      background: var(--bg-3);
-      color: var(--fg);
-      padding: 8px 12px;
-      font-size: 12px;
-      font-weight: 500;
+      background: var(--bg-3); color: var(--fg); border: 0;
+      padding: 8px 12px; border-radius: 4px;
+      font-family: inherit; font-size: 12px; font-weight: 500; cursor: pointer;
     }
-    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
     button.chip:active { background: var(--amber); color: #000; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 
+    /* Result sub-tabs */
+    .result-tabs {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      background: var(--bg-2); border: 1px solid var(--border);
+      border-radius: 6px; overflow: hidden; margin-bottom: 12px;
+    }
+    .result-tabs button {
+      background: transparent; border: 0; border-right: 1px solid var(--border);
+      color: var(--muted); padding: 10px 4px;
+      font-family: inherit; font-size: 11px; letter-spacing: 0.4px;
+      text-transform: uppercase; cursor: pointer;
+    }
+    .result-tabs button:last-child { border-right: 0; }
+    .result-tabs button.active { color: var(--amber); background: var(--bg-3); }
+
+    .refresh-row {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 10px; font-size: 11px; color: var(--muted);
+    }
+    .refresh-btn {
+      background: var(--bg-3); border: 1px solid var(--border); color: var(--amber);
+      padding: 5px 10px; border-radius: 4px; font-family: inherit;
+      font-size: 11px; cursor: pointer;
+    }
+    .cached-note { color: var(--green); }
+
+    /* Signals */
     .signal-row {
-      display: grid;
-      grid-template-columns: 1fr 64px 60px;
-      gap: 8px;
-      padding: 8px 0;
-      border-bottom: 1px solid var(--border);
-      font-size: 13px;
+      display: grid; grid-template-columns: 1fr 64px 44px;
+      gap: 8px; padding: 8px 0;
+      border-bottom: 1px solid var(--border); font-size: 13px;
     }
     .signal-row:last-child { border-bottom: 0; }
-    .signal-row .dim { color: var(--muted); text-transform: uppercase; font-size: 11px; }
-    .signal-row .sig { font-weight: 600; text-align: right; }
+    .signal-row .dim { color: var(--muted); text-transform: uppercase; font-size: 11px; align-self: center; }
+    .signal-row .sig { font-weight: 600; text-align: right; font-size: 12px; }
     .signal-row .score { text-align: right; font-variant-numeric: tabular-nums; }
     .bull { color: var(--green); }
     .bear { color: var(--red); }
     .neutral { color: var(--muted); }
     .composite {
-      margin-top: 10px;
-      padding: 10px 12px;
-      background: var(--bg-3);
-      border-radius: 4px;
+      margin-top: 10px; padding: 10px 12px; background: var(--bg-3); border-radius: 4px;
       display: flex; justify-content: space-between; align-items: center;
     }
     .composite .label { font-size: 11px; color: var(--muted); text-transform: uppercase; }
     .composite .value { font-size: 18px; font-weight: 700; color: var(--amber); }
 
-    .ladder pre {
-      margin: 0;
-      font-size: 12px;
-      line-height: 1.5;
-      color: var(--fg);
-      overflow-x: auto;
-      white-space: pre;
-    }
-
-    .kv { display: grid; grid-template-columns: 110px 1fr; gap: 4px 10px; font-size: 13px; }
+    /* Key/value grid */
+    .kv { display: grid; grid-template-columns: 140px 1fr; gap: 6px 10px; font-size: 13px; }
     .kv .k { color: var(--muted); }
-    .kv .v { font-weight: 600; }
+    .kv .v { font-weight: 600; word-break: break-all; }
+    .kv .v.bull { color: var(--green); }
+    .kv .v.bear { color: var(--red); }
 
-    .news-item {
-      padding: 10px 0;
-      border-bottom: 1px solid var(--border);
-      font-size: 13px;
+    /* Price ladder */
+    .ladder pre {
+      margin: 0; font-size: 12px; line-height: 1.7; color: var(--fg);
+      overflow-x: auto; white-space: pre;
     }
+    .level-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; }
+    .level-bar { height: 8px; border-radius: 2px; background: var(--amber); opacity: 0.5; }
+    .level-label { color: var(--muted); min-width: 60px; }
+    .level-price { font-variant-numeric: tabular-nums; min-width: 70px; text-align: right; }
+    .level-tag { font-size: 10px; color: var(--amber); }
+
+    /* Gauge bar for RSI etc */
+    .gauge-row { margin: 6px 0; }
+    .gauge-label { font-size: 11px; color: var(--muted); margin-bottom: 3px; display: flex; justify-content: space-between; }
+    .gauge-track { height: 6px; background: var(--bg-3); border-radius: 3px; position: relative; }
+    .gauge-fill { height: 100%; border-radius: 3px; }
+    .gauge-tick { position: absolute; top: -3px; width: 2px; height: 12px; background: var(--fg); opacity: 0.4; }
+
+    /* News */
+    .news-item { padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
     .news-item:last-child { border-bottom: 0; }
     .news-item a { color: var(--fg); text-decoration: none; }
     .news-item .meta { color: var(--muted); font-size: 11px; margin-top: 2px; }
 
+    /* History */
     .history-item {
       display: flex; justify-content: space-between; align-items: center;
-      padding: 12px;
-      border-bottom: 1px solid var(--border);
-      cursor: pointer;
+      padding: 12px; border-bottom: 1px solid var(--border); cursor: pointer;
     }
     .history-item:active { background: var(--bg-3); }
     .history-item .left .sym { font-weight: 700; color: var(--amber); }
     .history-item .left .meta { color: var(--muted); font-size: 11px; margin-top: 2px; }
     .history-item .conv { font-size: 11px; padding: 4px 8px; border-radius: 4px; background: var(--bg-3); }
 
-    .loading {
-      text-align: center;
-      padding: 24px 12px;
-      color: var(--muted);
-      font-size: 12px;
-      letter-spacing: 1px;
+    /* Section headers */
+    .section-label {
+      font-size: 10px; color: var(--amber); letter-spacing: 1px;
+      text-transform: uppercase; padding: 12px 0 6px; border-bottom: 1px solid var(--border);
+      margin-bottom: 10px;
     }
-    .loading::after {
-      content: " ⠋";
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin {
-      0% { content: " ⠋"; }
-      12% { content: " ⠙"; }
-      25% { content: " ⠹"; }
-      37% { content: " ⠸"; }
-      50% { content: " ⠼"; }
-      62% { content: " ⠴"; }
-      75% { content: " ⠦"; }
-      87% { content: " ⠧"; }
-      100% { content: " ⠇"; }
-    }
+
+    /* Misc */
+    .loading { text-align: center; padding: 24px 12px; color: var(--muted); font-size: 12px; letter-spacing: 1px; }
     .error {
-      color: var(--red);
-      padding: 12px;
-      background: rgba(239, 68, 68, 0.1);
-      border: 1px solid var(--red);
-      border-radius: 4px;
-      font-size: 13px;
+      color: var(--red); padding: 12px; background: rgba(239,68,68,0.1);
+      border: 1px solid var(--red); border-radius: 4px; font-size: 13px;
     }
     .hidden { display: none !important; }
-
     .regime-banner {
-      padding: 14px;
-      text-align: center;
-      letter-spacing: 1.5px;
-      font-weight: 700;
-      font-size: 16px;
-      border-radius: 4px;
-      margin-bottom: 12px;
+      padding: 14px; text-align: center; letter-spacing: 1.5px;
+      font-weight: 700; font-size: 16px; border-radius: 4px; margin-bottom: 12px;
     }
-    .regime-GOLDILOCKS { background: rgba(34, 197, 94, 0.15); color: var(--green); }
-    .regime-REFLATION  { background: rgba(245, 158, 11, 0.15); color: var(--amber); }
-    .regime-STAGFLATION { background: rgba(239, 68, 68, 0.15); color: var(--red); }
-    .regime-RISK-OFF   { background: rgba(59, 130, 246, 0.15); color: var(--blue); }
+    .regime-GOLDILOCKS { background: rgba(34,197,94,0.15); color: var(--green); }
+    .regime-REFLATION  { background: rgba(245,158,11,0.15); color: var(--amber); }
+    .regime-STAGFLATION { background: rgba(239,68,68,0.15); color: var(--red); }
+    .regime-RISK-OFF   { background: rgba(59,130,246,0.15); color: var(--blue); }
     .regime-UNKNOWN    { background: var(--bg-3); color: var(--muted); }
-
-    .markdown-view {
-      font-size: 13px;
-      line-height: 1.6;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
     .back-btn {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--amber);
-      padding: 8px 14px;
-      border-radius: 4px;
-      font-family: inherit;
-      cursor: pointer;
-      margin-bottom: 12px;
+      background: transparent; border: 1px solid var(--border); color: var(--amber);
+      padding: 8px 14px; border-radius: 4px; font-family: inherit; cursor: pointer; margin-bottom: 12px;
     }
+    .markdown-view { font-size: 12px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+    .tag {
+      display: inline-block; font-size: 10px; padding: 2px 6px;
+      border-radius: 3px; margin: 2px; vertical-align: middle;
+    }
+    .tag-bull { background: rgba(34,197,94,0.15); color: var(--green); }
+    .tag-bear { background: rgba(239,68,68,0.15); color: var(--red); }
+    .tag-neutral { background: var(--bg-3); color: var(--muted); }
+    .tag-info { background: rgba(59,130,246,0.15); color: var(--blue); }
   </style>
 </head>
 <body>
@@ -267,14 +248,14 @@
   </header>
 
   <main>
-    <!-- SCAN VIEW -->
+    <!-- SCAN -->
     <section id="view-scan">
       <div class="panel">
         <h2>Scan</h2>
         <div class="body">
           <form id="scan-form" class="input-row" autocomplete="off">
             <input type="text" id="symbol" placeholder="AAPL · BTCUSDT · EURUSD · MACRO" autocapitalize="characters" />
-            <button class="primary" type="submit">SCAN</button>
+            <button class="primary" type="submit">GO</button>
           </form>
           <div class="chips">
             <button class="chip" data-sym="SPX">SPX</button>
@@ -283,17 +264,16 @@
             <button class="chip" data-sym="TSLA">TSLA</button>
             <button class="chip" data-sym="BTCUSDT">BTC</button>
             <button class="chip" data-sym="ETHUSDT">ETH</button>
-            <button class="chip" data-sym="EURUSD">EURUSD</button>
+            <button class="chip" data-sym="EURUSD">EUR/USD</button>
             <button class="chip" data-sym="MACRO">MACRO</button>
           </div>
         </div>
       </div>
-
       <div id="scan-status" class="hidden"></div>
       <div id="scan-result"></div>
     </section>
 
-    <!-- MACRO VIEW -->
+    <!-- MACRO -->
     <section id="view-macro" class="hidden">
       <div class="panel">
         <h2>Macro Regime</h2>
@@ -304,7 +284,7 @@
       </div>
     </section>
 
-    <!-- NEWS VIEW -->
+    <!-- NEWS -->
     <section id="view-news" class="hidden">
       <div class="panel">
         <h2>News</h2>
@@ -315,11 +295,11 @@
       </div>
     </section>
 
-    <!-- HISTORY VIEW -->
+    <!-- HISTORY -->
     <section id="view-history" class="hidden">
       <div class="panel">
         <h2>Saved Scans</h2>
-        <div class="body" style="padding: 0;">
+        <div class="body" style="padding:0">
           <div id="history-status" class="loading">LOADING</div>
           <div id="history-list" class="hidden"></div>
         </div>
@@ -339,128 +319,371 @@
   </nav>
 
 <script>
-const $ = (id) => document.getElementById(id);
-const fmt = (v, d = 2) => (v == null || isNaN(v)) ? "—" : Number(v).toFixed(d);
+const $ = id => document.getElementById(id);
+const fmt = (v, d=2) => (v == null || isNaN(Number(v))) ? "—" : Number(v).toFixed(d);
+const pct = (v, d=1) => v == null ? "—" : (Number(v)*100).toFixed(d)+"%";
 
-async function api(path, opts = {}) {
+async function api(path, opts={}) {
   const r = await fetch(path, opts);
-  if (r.status === 401) {
-    alert("Authentication required. Reload and enter credentials.");
-    throw new Error("auth");
-  }
-  if (!r.ok) {
-    const text = await r.text();
-    throw new Error(text || ("HTTP " + r.status));
-  }
+  if (r.status === 401) { alert("Authentication required. Reload and enter credentials."); throw new Error("auth"); }
+  if (!r.ok) { const t = await r.text(); throw new Error(t || "HTTP "+r.status); }
   return r.json();
 }
 
 function setView(name) {
-  for (const v of ["scan", "macro", "news", "history"]) {
-    $("view-" + v).classList.toggle("hidden", v !== name);
-  }
-  document.querySelectorAll("nav.tabs button").forEach(b => {
-    b.classList.toggle("active", b.dataset.view === name);
-  });
-  if (name === "macro") loadMacro();
-  if (name === "news") loadNews();
-  if (name === "history") loadHistory();
+  ["scan","macro","news","history"].forEach(v => $("view-"+v).classList.toggle("hidden", v!==name));
+  document.querySelectorAll("nav.tabs button").forEach(b => b.classList.toggle("active", b.dataset.view===name));
+  if (name==="macro") loadMacro();
+  if (name==="news") loadNews();
+  if (name==="history") loadHistory();
 }
 
 function signalClass(score) {
-  if (typeof score === "string") {
-    if (score.startsWith("+")) return "bull";
-    if (score.startsWith("-")) return "bear";
-  }
-  if (score > 0) return "bull";
-  if (score < 0) return "bear";
-  return "neutral";
+  if (score > 0) return "bull"; if (score < 0) return "bear"; return "neutral";
 }
-
 function convictionClass(c) {
-  if (!c) return "neutral";
-  c = c.toUpperCase();
-  if (c.includes("LONG")) return "bull";
-  if (c.includes("SHORT")) return "bear";
-  return "neutral";
+  if (!c) return "neutral"; c=c.toUpperCase();
+  if (c.includes("LONG")) return "bull"; if (c.includes("SHORT")) return "bear"; return "neutral";
 }
 
-function renderScanResult(data) {
-  if (data.error) {
-    return `<div class="error">${data.error}</div>`;
-  }
+// ── helpers ──────────────────────────────────────────────────────────────────
+function kv(k, v, cls="") {
+  return `<div class="k">${k}</div><div class="v ${cls}">${v ?? "—"}</div>`;
+}
+function tag(label, type="neutral") { return `<span class="tag tag-${type}">${label}</span>`; }
+function tagForScore(score) { return score>0 ? tag("BULL","bull") : score<0 ? tag("BEAR","bear") : tag("NEUTRAL","neutral"); }
+
+function gaugeBar(value, min, max, label, color="#f59e0b") {
+  const pct = Math.max(0, Math.min(100, ((value-min)/(max-min))*100));
+  return `<div class="gauge-row">
+    <div class="gauge-label"><span>${label}</span><span>${fmt(value)}</span></div>
+    <div class="gauge-track">
+      <div class="gauge-fill" style="width:${pct}%;background:${color}"></div>
+    </div>
+  </div>`;
+}
+
+// ── per-tab renderers ─────────────────────────────────────────────────────────
+function renderOverview(data) {
   const signals = data.signals || {};
   const scores = data.scores || {};
   const total = data.total_score ?? 0;
   const conviction = data.conviction || "?";
   const metrics = data.key_metrics || {};
-  const vp = metrics.volume_profile || {};
 
-  let html = `<div class="panel"><h2>${data.symbol} · ${data.asset_class}</h2><div class="body">`;
+  // price — equity uses "price", crypto uses "price_usd"
+  const currentPrice = metrics.price ?? metrics.price_usd;
 
+  let html = "";
   for (const [dim, sig] of Object.entries(signals)) {
-    const sc = scores[dim];
-    const scoreStr = (sc > 0 ? "+" : "") + (sc ?? 0);
+    const sc = scores[dim] ?? 0;
+    const scoreStr = (sc>0?"+":"") + sc;
     html += `<div class="signal-row">
-      <div class="dim">${dim.replace(/_/g, " ")}</div>
+      <div class="dim">${dim.replace(/_/g," ")}</div>
       <div class="sig ${signalClass(sc)}">${sig}</div>
       <div class="score ${signalClass(sc)}">${scoreStr}</div>
     </div>`;
   }
 
   html += `<div class="composite">
-    <div><div class="label">Composite</div><div class="value">${total}</div></div>
+    <div><div class="label">Composite</div><div class="value">${total > 0 ? "+"+total : total}</div></div>
     <div style="text-align:right"><div class="label">Conviction</div><div class="value ${convictionClass(conviction)}">${conviction}</div></div>
   </div>`;
-  html += `</div></div>`;
 
-  if (vp && vp.poc != null) {
-    html += `<div class="panel"><h2>Price Ladder</h2><div class="body ladder"><pre>`;
-    const rows = [
-      ["52W High", metrics.week52_high],
-      ["VAH", vp.vah],
-      ["POC ←", vp.poc],
-      ["VAL", vp.val],
-      ["52W Low", metrics.week52_low],
-    ];
-    for (const [k, v] of rows) {
-      if (v != null) html += `${k.padEnd(10)} ${fmt(v)}\n`;
-    }
-    if (metrics.current_price != null) {
-      html += `\nCURRENT  ${fmt(metrics.current_price)}`;
-    }
-    html += `</pre></div></div>`;
+  if (currentPrice != null) {
+    html += `<div style="margin-top:10px;font-size:13px;color:var(--muted)">Current price: <span style="color:var(--fg);font-weight:700">${fmt(currentPrice)}</span></div>`;
   }
 
-  const kvFields = [
-    ["current_price", "Price"],
-    ["week52_high", "52W High"],
-    ["week52_low", "52W Low"],
-    ["rsi_14", "RSI(14)"],
-    ["sma_50", "SMA50"],
-    ["sma_200", "SMA200"],
-    ["atr_14", "ATR(14)"],
-    ["pe_forward", "Fwd P/E"],
-    ["funding_rate_pct", "Funding %"],
-    ["fear_greed", "F&G"],
-    ["cot_index_52w", "COT Idx"],
-  ];
-  let kvHtml = "";
-  for (const [k, label] of kvFields) {
-    const v = metrics[k];
-    if (v != null && v !== "") kvHtml += `<div class="k">${label}</div><div class="v">${typeof v === "number" ? fmt(v) : v}</div>`;
-  }
-  if (kvHtml) {
-    html += `<div class="panel"><h2>Key Metrics</h2><div class="body"><div class="kv">${kvHtml}</div></div></div>`;
-  }
-
-  if (data._saved_filename) {
-    html += `<div class="loading" style="text-align:left">saved → ${data._saved_filename}</div>`;
+  const news = data.news_sentiment;
+  if (news) {
+    const nCls = news.label==="BULLISH"?"bull":news.label==="BEARISH"?"bear":"neutral";
+    html += `<div style="margin-top:8px;font-size:12px;color:var(--muted)">News: <span class="${nCls}" style="font-weight:600">${news.label}</span> (${news.positive_count}↑ ${news.negative_count}↓)</div>`;
   }
   return html;
 }
 
-async function runScan(symbol) {
+function renderTechnical(data) {
+  const m = data.key_metrics || {};
+  const ac = data.asset_class || "";
+  const price = m.price ?? m.price_usd;
+
+  // Volume profile levels (flat on key_metrics)
+  const poc = m.poc, vah = m.vah, val = m.val, hvns = m.hvns || [];
+  const w52h = m.week52_high, w52l = m.week52_low;
+  const rsi = m.rsi_14, sma50 = m.sma_50, sma200 = m.sma_200, atr = m.atr_14;
+
+  let html = "";
+
+  // RSI gauge
+  if (rsi != null) {
+    const rsiColor = rsi > 70 ? "#ef4444" : rsi < 30 ? "#22c55e" : "#f59e0b";
+    const zone = rsi > 70 ? "OVERBOUGHT" : rsi < 30 ? "OVERSOLD" : "NEUTRAL";
+    html += `<div class="section-label">Momentum</div>`;
+    html += `<div class="kv">`;
+    html += kv("RSI(14)", `${fmt(rsi)} <span style="color:${rsiColor};font-size:10px">${zone}</span>`);
+    if (atr != null) html += kv("ATR(14)", fmt(atr) + (price ? ` (${fmt(atr/price*100,1)}% of price)` : ""));
+    html += `</div>`;
+    html += gaugeBar(rsi, 0, 100, "RSI", rsiColor);
+  }
+
+  // Moving averages
+  if (sma50 != null || sma200 != null) {
+    html += `<div class="section-label">Moving Averages</div><div class="kv">`;
+    if (price != null)  html += kv("Price", fmt(price));
+    if (sma50  != null) html += kv("SMA 50", fmt(sma50) + (price!=null ? ` ${price>sma50?tag("above","bull"):tag("below","bear")}` : ""));
+    if (sma200 != null) html += kv("SMA 200", fmt(sma200) + (price!=null ? ` ${price>sma200?tag("above","bull"):tag("below","bear")}` : ""));
+    if (sma50!=null && sma200!=null) {
+      const cross = sma50>sma200 ? tag("Golden Cross","bull") : tag("Death Cross","bear");
+      html += kv("MA Signal", cross);
+    }
+    html += `</div>`;
+  }
+
+  // Volume profile
+  if (poc != null || vah != null || val != null) {
+    html += `<div class="section-label">Volume Profile</div>`;
+    const levels = [
+      ["52W High", w52h, "info"], ["VAH", vah, "neutral"],
+      ["POC", poc, "bull"], ["VAL", val, "neutral"], ["52W Low", w52l, "info"],
+    ];
+    html += `<div style="padding:4px 0">`;
+    for (const [lbl, v, t] of levels) {
+      if (v==null) continue;
+      const isHere = price!=null && Math.abs(price-v)/(Math.abs(price)+1)<0.01;
+      html += `<div class="level-row">
+        <div class="level-label" style="color:var(--muted)">${lbl}</div>
+        <div class="level-price" style="${isHere?"color:var(--amber);font-weight:700":""}">${fmt(v)}</div>
+        <div class="level-tag">${isHere?"◄ HERE":""}</div>
+        ${tag(lbl,t)}
+      </div>`;
+    }
+    if (price!=null) {
+      html += `<div class="level-row" style="border-top:1px solid var(--border);margin-top:4px;padding-top:8px">
+        <div class="level-label" style="color:var(--amber)">CURRENT</div>
+        <div class="level-price" style="color:var(--amber);font-weight:700">${fmt(price)}</div>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+
+  // Crypto-specific
+  if (ac==="crypto") {
+    const fg = m.fear_greed_value;
+    if (fg!=null) {
+      const fgColor = fg<25?"#22c55e":fg>75?"#ef4444":"#f59e0b";
+      const fgLabel = fg<25?"EXTREME FEAR":fg>75?"EXTREME GREED":fg<45?"FEAR":"GREED";
+      html += `<div class="section-label">Crypto Signals</div>`;
+      html += gaugeBar(fg, 0, 100, `Fear & Greed: ${m.fear_greed_label||fgLabel}`, fgColor);
+      html += `<div class="kv" style="margin-top:10px">`;
+      if (m.funding_rate_pct!=null) html += kv("Funding Rate", fmt(m.funding_rate_pct,4)+"%");
+      if (m.oi_change_pct!=null)    html += kv("OI Change", fmt(m.oi_change_pct,1)+"%");
+      if (m.price_change_30d_pct!=null) html += kv("30d Change", fmt(m.price_change_30d_pct,1)+"%");
+      html += `</div>`;
+    }
+  }
+
+  // Forex-specific
+  if (ac==="forex") {
+    const cot = m.cot_index_52w;
+    if (cot!=null) {
+      const cotColor = cot>80?"#ef4444":cot<20?"#22c55e":"#f59e0b";
+      html += `<div class="section-label">COT Positioning</div>`;
+      html += gaugeBar(cot, 0, 100, `COT Index 52W: ${m.cot_positioning||""}`, cotColor);
+    }
+  }
+
+  if (!html) html = `<div class="loading">No technical data available.</div>`;
+  return html;
+}
+
+function renderInsider(data) {
+  const m = data.key_metrics || {};
+  const signals = data.signals || {};
+  const scores = data.scores || {};
+  const ac = data.asset_class || "";
+
+  let html = "";
+
+  // For equity: show insider + options detail
+  if (ac === "equity" || ac === "index") {
+    html += `<div class="section-label">Insider Activity</div><div class="kv">`;
+    if (m.form4_count_90d != null) {
+      const fCls = m.form4_count_90d >= 3 ? "bull" : m.form4_count_90d === 0 ? "bear" : "";
+      html += kv("Form 4 (90d)", m.form4_count_90d, fCls);
+    }
+    if (m.inst_ownership_pct != null) {
+      const iPct = (m.inst_ownership_pct * 100).toFixed(1) + "%";
+      html += kv("Institutional %", iPct, m.inst_ownership_pct > 0.7 ? "bull" : "");
+    }
+    if (m.short_float_pct != null) {
+      const sPct = (m.short_float_pct * 100).toFixed(1) + "%";
+      html += kv("Short Float %", sPct, m.short_float_pct > 0.2 ? "bear" : "");
+    }
+    html += `</div>`;
+
+    html += `<div class="section-label">Options Positioning</div><div class="kv">`;
+    if (m.pcr != null) {
+      const pcrCls = m.pcr > 1.3 ? "bear" : m.pcr < 0.7 ? "bull" : "";
+      const pcrLabel = m.pcr > 1.3 ? " (puts heavy)" : m.pcr < 0.7 ? " (calls heavy)" : "";
+      html += kv("P/C Ratio", fmt(m.pcr) + pcrLabel, pcrCls);
+    }
+    if (m.net_gex != null) {
+      const gexM = (m.net_gex / 1e6).toFixed(1);
+      html += kv("Net GEX", `$${gexM}M`, m.net_gex > 0 ? "bull" : "bear");
+    }
+    html += `</div>`;
+
+    // Signal detail for insider/institutional
+    if (signals.insider_institutional) {
+      const sc = scores.insider_institutional ?? 0;
+      html += `<div class="section-label">Signal</div>`;
+      html += `<div style="padding:10px;background:var(--bg-3);border-radius:4px;font-size:13px">
+        ${tagForScore(sc)} ${signals.insider_institutional}
+      </div>`;
+    }
+    if (signals.options) {
+      html += `<div style="padding:10px;background:var(--bg-3);border-radius:4px;font-size:13px;margin-top:8px">
+        ${tagForScore(scores.options??0)} Options: ${signals.options}
+      </div>`;
+    }
+  }
+
+  // For crypto: show funding + OI
+  if (ac === "crypto") {
+    html += `<div class="section-label">Perp Funding & OI</div><div class="kv">`;
+    if (m.funding_rate_pct!=null) {
+      const fCls = m.funding_rate_pct < -0.01 ? "bull" : m.funding_rate_pct > 0.1 ? "bear" : "";
+      html += kv("Funding Rate", fmt(m.funding_rate_pct,4)+"%", fCls);
+    }
+    if (m.oi_change_pct!=null) html += kv("OI Change 30d", fmt(m.oi_change_pct,1)+"%");
+    if (m.market_cap_usd!=null) html += kv("Market Cap", "$"+Number(m.market_cap_usd).toLocaleString());
+    html += `</div>`;
+    if (signals.funding) html += `<div style="padding:10px;background:var(--bg-3);border-radius:4px;font-size:13px;margin-top:8px">
+      ${tagForScore(scores.funding??0)} Funding: ${signals.funding}</div>`;
+    if (signals.oi_trend) html += `<div style="padding:10px;background:var(--bg-3);border-radius:4px;font-size:13px;margin-top:8px">
+      ${tagForScore(scores.oi_trend??0)} OI Trend: ${signals.oi_trend}</div>`;
+  }
+
+  // For forex: COT detail
+  if (ac === "forex") {
+    html += `<div class="section-label">COT Positioning</div><div class="kv">`;
+    if (m.cot_index_52w!=null) html += kv("COT Index 52W", fmt(m.cot_index_52w,1));
+    if (m.cot_positioning) html += kv("Positioning", m.cot_positioning);
+    if (m.ten_year_usd_yield!=null) html += kv("10Y USD Yield", fmt(m.ten_year_usd_yield)+"%");
+    html += `</div>`;
+  }
+
+  if (!html) html = `<div class="loading">No insider/positioning data for this asset class.</div>`;
+  return html;
+}
+
+function renderReport(data) {
+  const m = data.key_metrics || {};
+  const signals = data.signals || {};
+  const scores = data.scores || {};
+  const regime = data.fred_regime || {};
+  const news = data.news_sentiment || {};
+  const ac = data.asset_class || "";
+  const price = m.price ?? m.price_usd;
+
+  let html = `<div class="section-label">Identity</div><div class="kv">`;
+  html += kv("Symbol", data.symbol);
+  html += kv("Asset Class", ac);
+  html += kv("Scanned At", data.computed_at ? data.computed_at.replace("T"," ").slice(0,19)+" UTC" : "—");
+  html += `</div>`;
+
+  html += `<div class="section-label">All Signals</div>`;
+  for (const [dim, sig] of Object.entries(signals)) {
+    const sc = scores[dim] ?? 0;
+    html += `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
+      <span style="color:var(--muted);text-transform:uppercase;font-size:11px">${dim.replace(/_/g," ")}</span>
+      <span>${tagForScore(sc)} ${sig}</span>
+    </div>`;
+  }
+  const total = data.total_score ?? 0;
+  html += `<div style="display:flex;justify-content:space-between;padding:10px 0;font-weight:700">
+    <span style="color:var(--amber)">COMPOSITE</span>
+    <span class="${convictionClass(data.conviction)}">${total > 0?"+":""} ${total} — ${data.conviction}</span>
+  </div>`;
+
+  html += `<div class="section-label">All Metrics</div><div class="kv">`;
+  for (const [k, v] of Object.entries(m)) {
+    if (v==null || (Array.isArray(v) && v.length===0)) continue;
+    const display = Array.isArray(v) ? v.map(x=>fmt(x)).join(", ") : typeof v==="number" ? fmt(v) : String(v);
+    html += kv(k.replace(/_/g," "), display);
+  }
+  html += `</div>`;
+
+  if (news && news.label) {
+    html += `<div class="section-label">News Sentiment</div><div class="kv">`;
+    html += kv("Label", news.label, news.label==="BULLISH"?"bull":news.label==="BEARISH"?"bear":"neutral");
+    html += kv("Positive hits", news.positive_count);
+    html += kv("Negative hits", news.negative_count);
+    html += `</div>`;
+  }
+
+  if (regime && Object.keys(regime).length) {
+    html += `<div class="section-label">Macro Backdrop (FRED)</div><div class="kv">`;
+    for (const [k,v] of Object.entries(regime)) {
+      if (v!=null) html += kv(k.replace(/_/g," "), typeof v==="number"?fmt(v):String(v));
+    }
+    html += `</div>`;
+  }
+
+  if (data._saved_filename) {
+    html += `<div style="margin-top:12px;font-size:11px;color:var(--muted)">saved → ${data._saved_filename}</div>`;
+  }
+  return html;
+}
+
+// ── main scan result renderer ─────────────────────────────────────────────────
+function renderScanResult(data) {
+  if (data.error) return `<div class="error">${data.error}</div>`;
+  window._lastScan = data;
+
+  const cachedNote = data._cached
+    ? `<span class="cached-note">⚡ cached</span>`
+    : "";
+
+  return `
+    <div class="refresh-row">
+      <span style="font-weight:600;color:var(--amber)">${data.symbol}</span>
+      <span style="color:var(--muted)">· ${data.asset_class}</span>
+      ${cachedNote}
+      <button class="refresh-btn" id="refresh-btn">↻ refresh</button>
+    </div>
+    <div class="result-tabs">
+      <button data-rtab="overview" class="active">Overview</button>
+      <button data-rtab="technical">Technical</button>
+      <button data-rtab="insider">Insider</button>
+      <button data-rtab="report">Report</button>
+    </div>
+    <div class="panel" id="rtab-overview"><div class="body">${renderOverview(data)}</div></div>
+    <div class="panel hidden" id="rtab-technical"><div class="body">${renderTechnical(data)}</div></div>
+    <div class="panel hidden" id="rtab-insider"><div class="body">${renderInsider(data)}</div></div>
+    <div class="panel hidden" id="rtab-report"><div class="body">${renderReport(data)}</div></div>
+  `;
+}
+
+function attachResultHandlers() {
+  document.querySelectorAll(".result-tabs button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".result-tabs button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      ["overview","technical","insider","report"].forEach(t => {
+        const el = $("rtab-"+t);
+        if (el) el.classList.toggle("hidden", t!==btn.dataset.rtab);
+      });
+    });
+  });
+  const rbtn = $("refresh-btn");
+  if (rbtn && window._lastScan) {
+    rbtn.addEventListener("click", () => runScan(window._lastScan.symbol, true));
+  }
+}
+
+// ── scan ─────────────────────────────────────────────────────────────────────
+async function runScan(symbol, forceRefresh=false) {
   $("scan-status").classList.remove("hidden");
   $("scan-status").className = "loading";
   $("scan-status").textContent = `SCANNING ${symbol}`;
@@ -469,78 +692,73 @@ async function runScan(symbol) {
     const data = await api("/api/scan", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({symbol}),
+      body: JSON.stringify({symbol, refresh: forceRefresh}),
     });
     $("scan-status").classList.add("hidden");
     $("scan-result").innerHTML = renderScanResult(data);
-  } catch (e) {
+    attachResultHandlers();
+  } catch(e) {
     $("scan-status").className = "error";
-    $("scan-status").textContent = "Scan failed: " + e.message;
+    $("scan-status").textContent = "Scan failed: "+e.message;
   }
 }
 
+// ── macro ─────────────────────────────────────────────────────────────────────
 async function loadMacro() {
   $("macro-status").classList.remove("hidden");
   $("macro-content").classList.add("hidden");
   try {
     const d = await api("/api/macro");
-    if (d.error) {
-      $("macro-status").className = "error";
-      $("macro-status").textContent = d.error;
-      return;
-    }
+    if (d.error) { $("macro-status").className="error"; $("macro-status").textContent=d.error; return; }
     const ind = d.indicators || {};
     const fields = [
-      ["10Y", ind.yield_10y, "%"],
-      ["2Y", ind.yield_2y, "%"],
-      ["10Y-2Y", ind.yield_spread_10y_2y, "%"],
-      ["CPI YoY", ind.cpi_yoy, "%"],
-      ["5Y BE Inflation", ind.breakeven_5y, "%"],
-      ["VIX", ind.vix, ""],
-      ["HY Spread", ind.hy_spread, "%"],
-      ["Unemployment", ind.unemployment, "%"],
+      ["10Y Yield",       ind.yield_10y,             "%"],
+      ["2Y Yield",        ind.yield_2y,              "%"],
+      ["10Y-2Y Spread",   ind.yield_spread_10y_2y,   "%"],
+      ["CPI YoY",         ind.cpi_yoy,               "%"],
+      ["5Y BE Inflation", ind.breakeven_5y,           "%"],
+      ["VIX",             ind.vix,                   ""],
+      ["HY Spread",       ind.hy_spread,             "%"],
+      ["Unemployment",    ind.unemployment,           "%"],
+      ["Fed Funds",       ind.fed_funds_rate,        "%"],
     ];
-    let kv = "";
-    for (const [k, v, suffix] of fields) {
-      if (v != null) kv += `<div class="k">${k}</div><div class="v">${fmt(v)}${suffix}</div>`;
+    let kvHtml = "";
+    for (const [k,v,s] of fields) {
+      if (v!=null) kvHtml += kv(k, fmt(v)+s);
     }
-    const regime = (d.regime || "UNKNOWN").toUpperCase();
+    const regime = (d.regime||"UNKNOWN").toUpperCase().replace(/ /g,"-");
     $("macro-content").innerHTML = `
       <div class="regime-banner regime-${regime}">${regime}</div>
-      <div class="kv">${kv}</div>
-      <div class="loading" style="text-align:left">growth: ${d.growth_signal} · inflation: ${d.inflation_signal}</div>
-    `;
+      <div class="kv">${kvHtml}</div>
+      <div style="margin-top:10px;font-size:11px;color:var(--muted)">
+        growth: ${d.growth_signal} · inflation: ${d.inflation_signal}
+      </div>`;
     $("macro-status").classList.add("hidden");
     $("macro-content").classList.remove("hidden");
-  } catch (e) {
-    $("macro-status").className = "error";
-    $("macro-status").textContent = "Macro load failed: " + e.message;
-  }
+  } catch(e) { $("macro-status").className="error"; $("macro-status").textContent="Macro failed: "+e.message; }
 }
 
+// ── news ──────────────────────────────────────────────────────────────────────
 async function loadNews() {
   $("news-status").classList.remove("hidden");
   $("news-content").classList.add("hidden");
   try {
     const d = await api("/api/news?query=markets");
     let html = "";
-    const headlines = d.headlines || [];
-    for (const h of headlines.slice(0, 20)) {
+    for (const h of (d.headlines||[]).slice(0,20)) {
       html += `<div class="news-item">
         <a href="${h.link}" target="_blank" rel="noopener">${h.title}</a>
-        <div class="meta">${h.source || ""} · ${h.published || ""}</div>
+        <div class="meta">${h.source||""} · ${h.published||""}</div>
       </div>`;
     }
-    if (!html) html = `<div class="loading" style="text-align:left">No headlines.</div>`;
+    if (!html) html = `<div class="loading">No headlines.</div>`;
     $("news-content").innerHTML = html;
     $("news-status").classList.add("hidden");
     $("news-content").classList.remove("hidden");
-  } catch (e) {
-    $("news-status").className = "error";
-    $("news-status").textContent = "News load failed: " + e.message;
-  }
+  } catch(e) { $("news-status").className="error"; $("news-status").textContent="News failed: "+e.message; }
 }
 
+// ── history ───────────────────────────────────────────────────────────────────
 async function loadHistory() {
   $("history-detail").classList.add("hidden");
   $("history-list").classList.add("hidden");
@@ -548,7 +766,7 @@ async function loadHistory() {
   try {
     const d = await api("/api/history");
     let html = "";
-    for (const item of d.scans || []) {
+    for (const item of d.scans||[]) {
       html += `<div class="history-item" data-file="${item.filename}">
         <div class="left">
           <div class="sym">${item.symbol}</div>
@@ -557,57 +775,41 @@ async function loadHistory() {
         <div class="conv ${convictionClass(item.conviction)}">${item.conviction}</div>
       </div>`;
     }
-    if (!html) html = `<div class="loading" style="text-align:left; padding:14px;">No saved scans yet.</div>`;
+    if (!html) html = `<div class="loading" style="padding:14px">No saved scans yet.</div>`;
     $("history-list").innerHTML = html;
     $("history-status").classList.add("hidden");
     $("history-list").classList.remove("hidden");
     $("history-list").querySelectorAll(".history-item").forEach(el => {
       el.addEventListener("click", () => loadHistoryDetail(el.dataset.file));
     });
-  } catch (e) {
-    $("history-status").className = "error";
-    $("history-status").textContent = "History load failed: " + e.message;
-  }
+  } catch(e) { $("history-status").className="error"; $("history-status").textContent="History failed: "+e.message; }
 }
 
 async function loadHistoryDetail(filename) {
   try {
-    const d = await api("/api/history/" + encodeURIComponent(filename));
+    const d = await api("/api/history/"+encodeURIComponent(filename));
     $("history-detail-body").textContent = d.markdown || "(empty)";
     $("history-list").classList.add("hidden");
     $("history-detail").classList.remove("hidden");
-  } catch (e) {
-    alert("Failed to load: " + e.message);
-  }
+  } catch(e) { alert("Failed: "+e.message); }
 }
 
+// ── health check ──────────────────────────────────────────────────────────────
 async function checkHealth() {
   try {
     const d = await api("/api/health");
-    const pill = $("health-pill");
-    if (d.fred_key_set) {
-      pill.textContent = "LIVE";
-      pill.className = "pill live";
-    } else {
-      pill.textContent = "NO FRED KEY";
-      pill.className = "pill dead";
-    }
-  } catch {
-    $("health-pill").textContent = "OFFLINE";
-    $("health-pill").className = "pill dead";
-  }
+    const p = $("health-pill");
+    p.textContent = d.fred_key_set ? "LIVE" : "NO FRED KEY";
+    p.className = "pill " + (d.fred_key_set ? "live" : "dead");
+  } catch { $("health-pill").textContent="OFFLINE"; $("health-pill").className="pill dead"; }
 }
 
-document.querySelectorAll("nav.tabs button").forEach(b => {
-  b.addEventListener("click", () => setView(b.dataset.view));
-});
-document.querySelectorAll(".chip").forEach(c => {
-  c.addEventListener("click", () => {
-    $("symbol").value = c.dataset.sym;
-    runScan(c.dataset.sym);
-  });
-});
-$("scan-form").addEventListener("submit", (e) => {
+// ── event wiring ──────────────────────────────────────────────────────────────
+document.querySelectorAll("nav.tabs button").forEach(b =>
+  b.addEventListener("click", () => setView(b.dataset.view)));
+document.querySelectorAll(".chip").forEach(c =>
+  c.addEventListener("click", () => { $("symbol").value=c.dataset.sym; runScan(c.dataset.sym); }));
+$("scan-form").addEventListener("submit", e => {
   e.preventDefault();
   const sym = $("symbol").value.trim().toUpperCase();
   if (sym) runScan(sym);

@@ -17,6 +17,7 @@ import json
 import os
 import secrets
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -42,8 +43,28 @@ WEB_DIR = Path(__file__).resolve().parent
 SCANNED_DIR = REPO_ROOT / "scanned"
 SCRIPTS_DIR = REPO_ROOT / "scripts"
 
+SCAN_TTL  = 900    # 15 min — market data changes slowly
+MACRO_TTL = 3600   # 1 hour — FRED series update daily
+NEWS_TTL  = 300    # 5 min — headlines turn over
+
+_cache: dict[str, dict] = {}
+
+def _cache_get(key: str) -> dict | None:
+    entry = _cache.get(key)
+    if entry and time.monotonic() < entry["exp"]:
+        return entry["data"]
+    return None
+
+def _cache_set(key: str, data: dict, ttl: int) -> None:
+    _cache[key] = {"data": data, "exp": time.monotonic() + ttl}
+
 app = FastAPI(title="trading-ops mobile", docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory=str(WEB_DIR / "static")), name="static")
+
+
+@app.on_event("startup")
+async def _startup() -> None:
+    asyncio.create_task(_prewarm_macro())
 templates = Jinja2Templates(directory=str(WEB_DIR / "templates"))
 
 security = HTTPBasic(auto_error=False)
@@ -70,6 +91,18 @@ def auth_required(credentials: HTTPBasicCredentials | None = Depends(security)) 
             headers={"WWW-Authenticate": "Basic"},
         )
     return credentials.username
+
+
+async def _prewarm_macro() -> None:
+    """Fetch FRED macro data in the background at startup so first user request is fast."""
+    if not os.environ.get("FRED_API_KEY"):
+        return
+    try:
+        data = await _run_script("fetch_fred.py", timeout=45)
+        if "error" not in data:
+            _cache_set("macro", data, MACRO_TTL)
+    except Exception:
+        pass
 
 
 async def _run_script(script: str, *args: str, timeout: float = 60.0) -> dict:
@@ -195,23 +228,34 @@ async def health() -> dict:
 async def api_macro(_user: str = Depends(auth_required)) -> dict:
     if not os.environ.get("FRED_API_KEY"):
         return {"error": "FRED_API_KEY not set on server", "regime": "UNKNOWN"}
+    cached = _cache_get("macro")
+    if cached:
+        return cached
     data = await _run_script("fetch_fred.py", timeout=45)
     if "error" in data:
         return data
     regime_indicators = data.get("regime_indicators", {}) or {}
     derived = data.get("derived_regime", {}) or {}
-    return {
+    result = {
         "regime": derived.get("regime", "UNKNOWN"),
         "growth_signal": derived.get("growth_signal", "?"),
         "inflation_signal": derived.get("inflation_signal", "?"),
         "indicators": regime_indicators,
         "fetched_at": data.get("fetched_at"),
     }
+    _cache_set("macro", result, MACRO_TTL)
+    return result
 
 
 @app.get("/api/news")
 async def api_news(query: str = "markets", _user: str = Depends(auth_required)) -> dict:
+    cache_key = f"news:{query}"
+    cached = _cache_get(cache_key)
+    if cached:
+        return cached
     data = await _run_script("fetch_news.py", query, timeout=30)
+    if "error" not in data:
+        _cache_set(cache_key, data, NEWS_TTL)
     return data
 
 
@@ -220,6 +264,14 @@ async def api_scan(payload: dict, _user: str = Depends(auth_required)) -> dict:
     symbol = (payload.get("symbol") or "").strip().upper()
     if not symbol:
         raise HTTPException(status_code=400, detail="symbol required")
+
+    force_refresh = bool(payload.get("refresh"))
+    cache_key = f"scan:{symbol}"
+
+    if not force_refresh:
+        cached = _cache_get(cache_key)
+        if cached:
+            return {**cached, "_cached": True}
 
     if symbol == "MACRO":
         ac = "macro"
@@ -243,6 +295,7 @@ async def api_scan(payload: dict, _user: str = Depends(auth_required)) -> dict:
 
     data["symbol"] = symbol
     data["asset_class"] = ac
+    _cache_set(cache_key, data, SCAN_TTL)
     return data
 
 

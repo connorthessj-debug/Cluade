@@ -30,6 +30,9 @@ network. Free tier sleeps after 15 min idle (first request after sleep takes
 ### Notes
 
 - Render free tier = 750 hrs/month (enough for one always-on service)
+- **Prevent cold starts for free**: sign up at https://uptimerobot.com (free),
+  add a new monitor → HTTP(S) → your Render URL + `/api/health` → every 5 minutes.
+  UptimeRobot pings it from outside, keeping Render warm. No more 30–60s wait.
 - All scripts use public APIs (yfinance, CoinGecko, Binance, SEC EDGAR, CFTC,
   FRED, Google News RSS) — they work fine from a cloud IP.
 - Scan results are saved to the container's `/app/scanned/` — they survive
