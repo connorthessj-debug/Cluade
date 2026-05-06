@@ -338,24 +338,33 @@ async def api_history_detail(filename: str, _user: str = Depends(auth_required))
 
 # ── backtest ──────────────────────────────────────────────────────────────────
 
+VALID_BT_INTERVALS  = {"1d", "1h", "15m", "5m", "1m"}
+VALID_BT_STRATEGIES = {"sma_rsi", "breakout", "mean_reversion"}
+
+
 def _wfa_worker(symbol: str, n_trials: int, train_days: int, test_days: int,
-                step_days: int, allow_short: bool) -> dict:
+                step_days: int, allow_short: bool,
+                interval: str = "1d", strategy: str = "sma_rsi") -> dict:
     """Runs in a separate process so it doesn't block the event loop."""
     sys.path.insert(0, str(REPO_ROOT))
     from scripts.wfa_optimizer import run_wfa
     return run_wfa(symbol, n_trials=n_trials, train_days=train_days,
-                   test_days=test_days, step_days=step_days, allow_short=allow_short)
+                   test_days=test_days, step_days=step_days, allow_short=allow_short,
+                   interval=interval, strategy=strategy)
 
 
 async def _run_backtest_job(job_id: str, symbol: str, n_trials: int,
                             train_days: int, test_days: int, step_days: int,
-                            allow_short: bool) -> None:
+                            allow_short: bool,
+                            interval: str = "1d", strategy: str = "sma_rsi") -> None:
     _backtest_jobs[job_id]["status"] = "running"
     try:
         loop = asyncio.get_event_loop()
         with ProcessPoolExecutor(max_workers=1) as pool:
             result = await loop.run_in_executor(
-                pool, _wfa_worker, symbol, n_trials, train_days, test_days, step_days, allow_short
+                pool, _wfa_worker,
+                symbol, n_trials, train_days, test_days, step_days, allow_short,
+                interval, strategy,
             )
         _backtest_jobs[job_id]["status"] = "done"
         _backtest_jobs[job_id]["result"] = result
@@ -373,23 +382,36 @@ async def api_backtest_start(payload: dict, _user: str = Depends(auth_required))
     if asset_class_mod.detect(symbol) not in ("equity", "index", "crypto"):
         raise HTTPException(status_code=400, detail="backtest supports equity/index/crypto only")
 
-    n_trials  = min(int(payload.get("n_trials",  40)), 100)
+    n_trials   = min(int(payload.get("n_trials",   40)), 100)
     train_days = min(int(payload.get("train_days", 252)), 504)
-    test_days  = min(int(payload.get("test_days",  63)),  126)
-    step_days  = min(int(payload.get("step_days",  21)),  63)
+    test_days  = min(int(payload.get("test_days",   63)), 126)
+    step_days  = min(int(payload.get("step_days",   21)),  63)
     allow_short = bool(payload.get("allow_short", True))
 
+    interval = str(payload.get("interval", "1d"))
+    if interval not in VALID_BT_INTERVALS:
+        interval = "1d"
+
+    strategy = str(payload.get("strategy", "sma_rsi"))
+    if strategy not in VALID_BT_STRATEGIES:
+        strategy = "sma_rsi"
+
     job_id = str(uuid.uuid4())[:8]
-    _backtest_jobs[job_id] = {"status": "queued", "symbol": symbol,
-                               "result": None, "error": None,
-                               "started_at": datetime.now(timezone.utc).isoformat()}
+    _backtest_jobs[job_id] = {
+        "status": "queued", "symbol": symbol,
+        "interval": interval, "strategy": strategy,
+        "result": None, "error": None,
+        "started_at": datetime.now(timezone.utc).isoformat(),
+    }
 
     asyncio.create_task(_run_backtest_job(
-        job_id, symbol, n_trials, train_days, test_days, step_days, allow_short
+        job_id, symbol, n_trials, train_days, test_days, step_days, allow_short,
+        interval, strategy,
     ))
 
+    est_windows = len(range(0, 1260 - train_days - test_days, step_days))
     return {"job_id": job_id, "symbol": symbol, "status": "queued",
-            "message": f"WFA started: {n_trials} trials × ~{(len(range(0, 1260-train_days-test_days, step_days)))} windows"}
+            "message": f"WFA started: {n_trials} trials × ~{est_windows} windows ({interval} {strategy})"}
 
 
 @app.get("/api/backtest/{job_id}")

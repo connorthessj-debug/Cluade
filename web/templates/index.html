@@ -669,25 +669,39 @@ function renderScanResult(data) {
 
 // ── backtest ─────────────────────────────────────────────────────────────────
 function renderBacktestLauncher(symbol) {
+  const inp = `background:var(--bg-3);border:1px solid var(--border);color:var(--fg);
+               padding:4px 8px;border-radius:3px;font-family:inherit;`;
+  const sel = inp + `width:160px;`;
   return `
-    <div class="section-label">Walk-Forward Analysis (Optuna Bayesian)</div>
+    <div class="section-label">Walk-Forward Analysis — Institutional Grade</div>
     <p style="font-size:12px;color:var(--muted);line-height:1.5">
-      Runs Bayesian hyperparameter optimisation (Optuna TPE) on rolling
-      train windows, then validates OOS. Takes 2–5 min depending on n_trials.
+      Optuna TPE Bayesian optimisation on rolling train windows, validated OOS.
+      Includes intrabar stop/TP simulation, slippage, permutation significance test
+      and full institutional metric suite. 2–8 min depending on settings.
     </p>
     <div class="kv" style="margin-bottom:12px">
+      <div class="k">Resolution</div>
+      <div class="v"><select id="bt-interval" style="${sel}">
+        <option value="1d" selected>1d — Daily (5y history)</option>
+        <option value="1h">1h — Hourly (730d equity / crypto)</option>
+        <option value="15m">15m — Crypto only</option>
+        <option value="5m">5m — Crypto only</option>
+      </select></div>
+      <div class="k">Strategy</div>
+      <div class="v"><select id="bt-strategy" style="${sel}">
+        <option value="sma_rsi" selected>SMA + RSI Crossover</option>
+        <option value="breakout">N-Bar Breakout + ATR</option>
+        <option value="mean_reversion">Mean Reversion (BB + RSI)</option>
+      </select></div>
       <div class="k">Trials/window</div>
       <div class="v"><input type="number" id="bt-trials" value="40" min="10" max="100"
-        style="background:var(--bg-3);border:1px solid var(--border);color:var(--fg);
-               padding:4px 8px;border-radius:3px;font-family:inherit;width:80px"></div>
-      <div class="k">Train days</div>
+        style="${inp}width:80px"></div>
+      <div class="k">Train bars</div>
       <div class="v"><input type="number" id="bt-train" value="252" min="126" max="504"
-        style="background:var(--bg-3);border:1px solid var(--border);color:var(--fg);
-               padding:4px 8px;border-radius:3px;font-family:inherit;width:80px"></div>
-      <div class="k">Test days</div>
+        style="${inp}width:80px"></div>
+      <div class="k">Test bars</div>
       <div class="v"><input type="number" id="bt-test" value="63" min="21" max="126"
-        style="background:var(--bg-3);border:1px solid var(--border);color:var(--fg);
-               padding:4px 8px;border-radius:3px;font-family:inherit;width:80px"></div>
+        style="${inp}width:80px"></div>
       <div class="k">Allow short</div>
       <div class="v"><input type="checkbox" id="bt-short" checked
         style="width:18px;height:18px;accent-color:var(--amber)"></div>
@@ -710,11 +724,19 @@ function renderBacktestResult(r) {
   let html = `<div style="padding:10px;background:var(--bg-3);border-radius:4px;margin-bottom:12px;
                            font-size:13px;color:${verdictColor};font-weight:600">${verdict}</div>`;
 
-  html += `<div class="section-label">WFA Aggregate (${agg.n_windows} windows)</div>
-           <div class="kv">`;
-  html += kv("WFA Sharpe (mean)", `${agg.wfa_sharpe_mean} ± ${agg.wfa_sharpe_std}`,
+  // ── meta ──────────────────────────────────────────────────────────────
+  const interval  = r.interval  || "1d";
+  const strategy  = (r.strategy || "sma_rsi").replace(/_/g," ");
+  html += `<div style="font-size:11px;color:var(--muted);margin-bottom:10px">
+    ${r.symbol} · ${interval} bars · ${strategy} · ${r.n_trials_per_window} trials/window
+    · ${r.data_start} → ${r.data_end} (${r.data_bars} bars)
+  </div>`;
+
+  // ── aggregate ─────────────────────────────────────────────────────────
+  html += `<div class="section-label">WFA Aggregate (${agg.n_windows} windows)</div><div class="kv">`;
+  html += kv("WFA Sharpe (mean ± std)", `${agg.wfa_sharpe_mean} ± ${agg.wfa_sharpe_std}`,
              agg.wfa_sharpe_mean > 0.5 ? "bull" : agg.wfa_sharpe_mean > 0 ? "" : "bear");
-  html += kv("OOS Return/window", fmt(agg.wfa_return_mean_pct)+"%",
+  html += kv("OOS Return / window", fmt(agg.wfa_return_mean_pct)+"%",
              agg.wfa_return_mean_pct > 0 ? "bull" : "bear");
   html += kv("Worst OOS Drawdown", fmt(agg.wfa_max_drawdown_pct)+"%", "bear");
   html += kv("Consistency", fmt(agg.wfa_consistency_pct,1)+"%",
@@ -725,6 +747,35 @@ function renderBacktestResult(r) {
              agg.wfa_vs_bh_sharpe > 0 ? "bull" : "bear");
   html += `</div>`;
 
+  // ── statistical significance badge ────────────────────────────────────
+  if (agg.perm_p_value_mean != null) {
+    const pv = agg.perm_p_value_mean;
+    const sigPct = agg.perm_significant_pct ?? "—";
+    const [sigCls, sigLabel] =
+      pv <= 0.05 ? ["#22c55e", "STATISTICALLY SIGNIFICANT"]
+    : pv <= 0.10 ? ["#f59e0b", "BORDERLINE SIGNIFICANT"]
+    : ["#ef4444", "NOT SIGNIFICANT"];
+    html += `<div style="margin:10px 0;padding:8px 10px;background:var(--bg-3);border-radius:4px;font-size:12px">
+      <span style="color:${sigCls};font-weight:700">${sigLabel}</span>
+      <span style="color:var(--muted);margin-left:8px">p=${pv.toFixed(3)} · ${sigPct}% of windows passed (p≤0.10)</span>
+    </div>`;
+  }
+
+  // ── institutional metrics ─────────────────────────────────────────────
+  if (agg.wfa_ulcer_mean != null) {
+    html += `<div class="section-label">Institutional Metrics (OOS mean across windows)</div><div class="kv">`;
+    html += kv("Ulcer Index", fmt(agg.wfa_ulcer_mean, 3));
+    html += kv("Expectancy / trade", fmt(agg.wfa_expectancy_mean, 4)+"%",
+               agg.wfa_expectancy_mean > 0 ? "bull" : "bear");
+    if (agg.mc_sharpe_p5_mean != null) {
+      html += kv("MC Sharpe p5 / p95",
+                 `${fmt(agg.mc_sharpe_p5_mean,3)} / ${fmt(agg.mc_sharpe_p95_mean,3)}`,
+                 agg.mc_sharpe_p5_mean > 0 ? "bull" : "bear");
+    }
+    html += `</div>`;
+  }
+
+  // ── stable params ─────────────────────────────────────────────────────
   if (r.stable_params) {
     html += `<div class="section-label">Stable Parameters (median top-50% windows)</div><div class="kv">`;
     for (const [k, v] of Object.entries(r.stable_params)) {
@@ -733,35 +784,43 @@ function renderBacktestResult(r) {
     html += `</div>`;
   }
 
-  // Per-window table
+  // ── per-window results ────────────────────────────────────────────────
   html += `<div class="section-label">Per-Window Results</div>`;
   for (const w of (r.windows || [])) {
     const wColor = w.oos_sharpe > 0 ? "var(--green)" : "var(--red)";
+    const pv = w.perm_p_value;
+    const pvColor = pv <= 0.05 ? "var(--green)" : pv <= 0.10 ? "var(--amber)" : "var(--red)";
     html += `<div style="padding:8px;background:var(--bg-3);border-radius:4px;margin-bottom:6px;font-size:12px">
       <div style="display:flex;justify-content:space-between;margin-bottom:4px">
         <span style="color:var(--muted)">Window ${w.window}: ${w.test_start} → ${w.test_end}</span>
         <span style="color:${wColor};font-weight:700">OOS Sharpe: ${w.oos_sharpe}</span>
       </div>
       <div class="kv" style="font-size:11px">
-        ${kv("OOS Return",w.oos_return_pct+"%",w.oos_return_pct>0?"bull":"bear")}
-        ${kv("OOS Max DD",w.oos_max_dd_pct+"%")}
-        ${kv("Trades",w.oos_n_trades)}
-        ${kv("Win Rate",w.oos_win_rate_pct+"%")}
+        ${kv("OOS Return",   w.oos_return_pct+"%", w.oos_return_pct>0?"bull":"bear")}
+        ${kv("OOS Max DD",   w.oos_max_dd_pct+"%")}
+        ${kv("Trades",       w.oos_n_trades)}
+        ${kv("Win Rate",     w.oos_win_rate_pct+"%")}
+        ${w.oos_ulcer_index != null ? kv("Ulcer Index", fmt(w.oos_ulcer_index,3)) : ""}
+        ${w.oos_expectancy_pct != null ? kv("Expectancy", fmt(w.oos_expectancy_pct,4)+"%",
+            w.oos_expectancy_pct>0?"bull":"bear") : ""}
+        ${w.mc_sharpe_p5 != null ? kv("MC Sharpe p5/p95",
+            fmt(w.mc_sharpe_p5,3)+" / "+fmt(w.mc_sharpe_p95,3)) : ""}
+        ${pv != null ? `<div class="k">Perm p-value</div>
+            <div class="v" style="color:${pvColor}">${pv.toFixed(3)}</div>` : ""}
       </div>
     </div>`;
   }
 
-  html += `<div style="font-size:11px;color:var(--muted);margin-top:8px">
-    Data: ${r.data_start} → ${r.data_end} (${r.data_bars} bars) · ${r.n_trials_per_window} trials/window
-  </div>`;
   return html;
 }
 
 async function launchBacktest(symbol) {
-  const trials = parseInt(document.getElementById("bt-trials")?.value || 40);
-  const train  = parseInt(document.getElementById("bt-train")?.value  || 252);
-  const test   = parseInt(document.getElementById("bt-test")?.value   || 63);
-  const short  = document.getElementById("bt-short")?.checked !== false;
+  const trials   = parseInt(document.getElementById("bt-trials")?.value   || 40);
+  const train    = parseInt(document.getElementById("bt-train")?.value    || 252);
+  const test     = parseInt(document.getElementById("bt-test")?.value     || 63);
+  const short    = document.getElementById("bt-short")?.checked !== false;
+  const interval = document.getElementById("bt-interval")?.value || "1d";
+  const strategy = document.getElementById("bt-strategy")?.value || "sma_rsi";
 
   const status = $("bt-status");
   status.classList.remove("hidden");
@@ -773,7 +832,8 @@ async function launchBacktest(symbol) {
       method: "POST",
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify({symbol, n_trials:trials, train_days:train,
-                            test_days:test, allow_short:short}),
+                            test_days:test, allow_short:short,
+                            interval, strategy}),
     });
 
     status.textContent = `Running… (job ${job.job_id}) — may take 2–5 min`;
