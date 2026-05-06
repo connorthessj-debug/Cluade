@@ -25,7 +25,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, status
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -405,3 +405,102 @@ async def api_backtest_status(job_id: str, _user: str = Depends(auth_required)) 
         "result": job.get("result"),
         "error": job.get("error"),
     }
+
+
+# ── siri / iOS Shortcuts endpoints ───────────────────────────────────────────
+# These return plain text so Siri can speak the result and Shortcuts
+# can display it in a notification or alert without any JSON parsing.
+
+def _siri_conviction_summary(data: dict) -> str:
+    symbol     = data.get("symbol", "?")
+    ac         = data.get("asset_class", "")
+    conviction = data.get("conviction", "?")
+    total      = data.get("total_score", 0)
+    signals    = data.get("signals", {}) or {}
+    metrics    = data.get("key_metrics", {}) or {}
+    price      = metrics.get("price") or metrics.get("price_usd")
+
+    bull = [k for k, v in signals.items() if isinstance(v, str) and "BULL" in v.upper()]
+    bear = [k for k, v in signals.items() if isinstance(v, str) and "BEAR" in v.upper()]
+
+    lines = [
+        f"{symbol} ({ac}) — {conviction}",
+        f"Score: {'+' if total > 0 else ''}{total}",
+    ]
+    if price:
+        lines.append(f"Price: {float(price):.2f}")
+    if bull:
+        lines.append(f"Bullish: {', '.join(bull)}")
+    if bear:
+        lines.append(f"Bearish: {', '.join(bear)}")
+    return "\n".join(lines)
+
+
+@app.get("/api/siri/scan/{symbol}", response_class=Response)
+async def siri_scan(symbol: str, _user: str = Depends(auth_required)) -> Response:
+    """Plain-text scan for iOS Shortcuts / Siri. Cached same as /api/scan."""
+    symbol = symbol.strip().upper()
+    ac = "macro" if symbol == "MACRO" else asset_class_mod.detect(symbol)
+
+    cache_key = f"scan:{symbol}"
+    data = _cache_get(cache_key)
+    if not data:
+        try:
+            data = await run_scan(symbol, ac)
+        except Exception as e:
+            return Response(f"{symbol}: scan failed — {e}", media_type="text/plain")
+        if not data.get("error"):
+            data["symbol"] = symbol
+            data["asset_class"] = ac
+            _cache_set(cache_key, data, SCAN_TTL)
+
+    if data.get("error"):
+        return Response(f"{symbol}: {data['error']}", media_type="text/plain")
+    return Response(_siri_conviction_summary(data), media_type="text/plain")
+
+
+@app.get("/api/siri/macro", response_class=Response)
+async def siri_macro(_user: str = Depends(auth_required)) -> Response:
+    """Plain-text macro regime for iOS Shortcuts / Siri."""
+    if not os.environ.get("FRED_API_KEY"):
+        return Response("Macro: FRED API key not configured.", media_type="text/plain")
+    cached = _cache_get("macro")
+    if not cached:
+        data = await _run_script("fetch_fred.py", timeout=45)
+        if "error" in data:
+            return Response(f"Macro error: {data['error']}", media_type="text/plain")
+        derived = data.get("derived_regime", {}) or {}
+        ind     = data.get("regime_indicators", {}) or {}
+        cached = {
+            "regime": derived.get("regime", "UNKNOWN"),
+            "growth_signal": derived.get("growth_signal", "?"),
+            "inflation_signal": derived.get("inflation_signal", "?"),
+            "indicators": ind,
+        }
+        _cache_set("macro", cached, MACRO_TTL)
+
+    ind = cached.get("indicators", {})
+    lines = [
+        f"Macro Regime: {cached.get('regime', '?')}",
+        f"Growth: {cached.get('growth_signal', '?')}  |  Inflation: {cached.get('inflation_signal', '?')}",
+    ]
+    for label, key in [("10Y-2Y Spread", "yield_spread_10y_2y"), ("VIX", "vix"), ("CPI YoY", "cpi_yoy")]:
+        v = ind.get(key)
+        if v is not None:
+            lines.append(f"{label}: {float(v):.2f}%")
+    return Response("\n".join(lines), media_type="text/plain")
+
+
+@app.get("/api/siri/watchlist", response_class=Response)
+async def siri_watchlist(_user: str = Depends(auth_required)) -> Response:
+    """Speak a summary of the most recent scan for each symbol in history."""
+    scans = list_scans(SCANNED_DIR)[:8]
+    if not scans:
+        return Response("No saved scans yet.", media_type="text/plain")
+    lines = []
+    for s in scans:
+        sym  = s.get("symbol", "?")
+        conv = s.get("conviction", "?")
+        date = s.get("date", "")
+        lines.append(f"{sym}: {conv} ({date})")
+    return Response("\n".join(lines), media_type="text/plain")
