@@ -117,7 +117,7 @@
 
     /* Result sub-tabs */
     .result-tabs {
-      display: grid; grid-template-columns: repeat(4, 1fr);
+      display: grid; grid-template-columns: repeat(5, 1fr);
       background: var(--bg-2); border: 1px solid var(--border);
       border-radius: 6px; overflow: hidden; margin-bottom: 12px;
     }
@@ -657,12 +657,146 @@ function renderScanResult(data) {
       <button data-rtab="technical">Technical</button>
       <button data-rtab="insider">Insider</button>
       <button data-rtab="report">Report</button>
+      <button data-rtab="backtest">WFA</button>
     </div>
     <div class="panel" id="rtab-overview"><div class="body">${renderOverview(data)}</div></div>
     <div class="panel hidden" id="rtab-technical"><div class="body">${renderTechnical(data)}</div></div>
     <div class="panel hidden" id="rtab-insider"><div class="body">${renderInsider(data)}</div></div>
     <div class="panel hidden" id="rtab-report"><div class="body">${renderReport(data)}</div></div>
+    <div class="panel hidden" id="rtab-backtest"><div class="body" id="backtest-body">${renderBacktestLauncher(data.symbol)}</div></div>
   `;
+}
+
+// ── backtest ─────────────────────────────────────────────────────────────────
+function renderBacktestLauncher(symbol) {
+  return `
+    <div class="section-label">Walk-Forward Analysis (Optuna Bayesian)</div>
+    <p style="font-size:12px;color:var(--muted);line-height:1.5">
+      Runs Bayesian hyperparameter optimisation (Optuna TPE) on rolling
+      train windows, then validates OOS. Takes 2–5 min depending on n_trials.
+    </p>
+    <div class="kv" style="margin-bottom:12px">
+      <div class="k">Trials/window</div>
+      <div class="v"><input type="number" id="bt-trials" value="40" min="10" max="100"
+        style="background:var(--bg-3);border:1px solid var(--border);color:var(--fg);
+               padding:4px 8px;border-radius:3px;font-family:inherit;width:80px"></div>
+      <div class="k">Train days</div>
+      <div class="v"><input type="number" id="bt-train" value="252" min="126" max="504"
+        style="background:var(--bg-3);border:1px solid var(--border);color:var(--fg);
+               padding:4px 8px;border-radius:3px;font-family:inherit;width:80px"></div>
+      <div class="k">Test days</div>
+      <div class="v"><input type="number" id="bt-test" value="63" min="21" max="126"
+        style="background:var(--bg-3);border:1px solid var(--border);color:var(--fg);
+               padding:4px 8px;border-radius:3px;font-family:inherit;width:80px"></div>
+      <div class="k">Allow short</div>
+      <div class="v"><input type="checkbox" id="bt-short" checked
+        style="width:18px;height:18px;accent-color:var(--amber)"></div>
+    </div>
+    <button class="primary" style="width:100%" onclick="launchBacktest('${symbol}')">
+      RUN WFA BACKTEST
+    </button>
+    <div id="bt-status" class="hidden" style="margin-top:12px"></div>
+    <div id="bt-result" style="margin-top:12px"></div>
+  `;
+}
+
+function renderBacktestResult(r) {
+  const agg = r.aggregate || {};
+  const verdict = r.verdict || "—";
+  const verdictColor = verdict.startsWith("STRONG") ? "var(--green)"
+                     : verdict.startsWith("MODERATE") ? "var(--amber)"
+                     : "var(--red)";
+
+  let html = `<div style="padding:10px;background:var(--bg-3);border-radius:4px;margin-bottom:12px;
+                           font-size:13px;color:${verdictColor};font-weight:600">${verdict}</div>`;
+
+  html += `<div class="section-label">WFA Aggregate (${agg.n_windows} windows)</div>
+           <div class="kv">`;
+  html += kv("WFA Sharpe (mean)", `${agg.wfa_sharpe_mean} ± ${agg.wfa_sharpe_std}`,
+             agg.wfa_sharpe_mean > 0.5 ? "bull" : agg.wfa_sharpe_mean > 0 ? "" : "bear");
+  html += kv("OOS Return/window", fmt(agg.wfa_return_mean_pct)+"%",
+             agg.wfa_return_mean_pct > 0 ? "bull" : "bear");
+  html += kv("Worst OOS Drawdown", fmt(agg.wfa_max_drawdown_pct)+"%", "bear");
+  html += kv("Consistency", fmt(agg.wfa_consistency_pct,1)+"%",
+             agg.wfa_consistency_pct >= 60 ? "bull" : agg.wfa_consistency_pct >= 40 ? "" : "bear");
+  html += kv("B&H Return", fmt(agg.bh_return_pct)+"%");
+  html += kv("B&H Sharpe", fmt(agg.bh_sharpe,3));
+  html += kv("WFA vs B&H Sharpe", (agg.wfa_vs_bh_sharpe > 0?"+":"")+fmt(agg.wfa_vs_bh_sharpe,3),
+             agg.wfa_vs_bh_sharpe > 0 ? "bull" : "bear");
+  html += `</div>`;
+
+  if (r.stable_params) {
+    html += `<div class="section-label">Stable Parameters (median top-50% windows)</div><div class="kv">`;
+    for (const [k, v] of Object.entries(r.stable_params)) {
+      html += kv(k.replace(/_/g," "), typeof v==="number" && v<1 ? fmt(v,4) : String(v));
+    }
+    html += `</div>`;
+  }
+
+  // Per-window table
+  html += `<div class="section-label">Per-Window Results</div>`;
+  for (const w of (r.windows || [])) {
+    const wColor = w.oos_sharpe > 0 ? "var(--green)" : "var(--red)";
+    html += `<div style="padding:8px;background:var(--bg-3);border-radius:4px;margin-bottom:6px;font-size:12px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span style="color:var(--muted)">Window ${w.window}: ${w.test_start} → ${w.test_end}</span>
+        <span style="color:${wColor};font-weight:700">OOS Sharpe: ${w.oos_sharpe}</span>
+      </div>
+      <div class="kv" style="font-size:11px">
+        ${kv("OOS Return",w.oos_return_pct+"%",w.oos_return_pct>0?"bull":"bear")}
+        ${kv("OOS Max DD",w.oos_max_dd_pct+"%")}
+        ${kv("Trades",w.oos_n_trades)}
+        ${kv("Win Rate",w.oos_win_rate_pct+"%")}
+      </div>
+    </div>`;
+  }
+
+  html += `<div style="font-size:11px;color:var(--muted);margin-top:8px">
+    Data: ${r.data_start} → ${r.data_end} (${r.data_bars} bars) · ${r.n_trials_per_window} trials/window
+  </div>`;
+  return html;
+}
+
+async function launchBacktest(symbol) {
+  const trials = parseInt(document.getElementById("bt-trials")?.value || 40);
+  const train  = parseInt(document.getElementById("bt-train")?.value  || 252);
+  const test   = parseInt(document.getElementById("bt-test")?.value   || 63);
+  const short  = document.getElementById("bt-short")?.checked !== false;
+
+  const status = $("bt-status");
+  status.classList.remove("hidden");
+  status.className = "loading";
+  status.textContent = "Submitting WFA job…";
+
+  try {
+    const job = await api("/api/backtest", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({symbol, n_trials:trials, train_days:train,
+                            test_days:test, allow_short:short}),
+    });
+
+    status.textContent = `Running… (job ${job.job_id}) — may take 2–5 min`;
+
+    // Poll every 8s
+    const poll = setInterval(async () => {
+      try {
+        const s = await api(`/api/backtest/${job.job_id}`);
+        if (s.status === "done") {
+          clearInterval(poll);
+          status.classList.add("hidden");
+          $("bt-result").innerHTML = renderBacktestResult(s.result);
+        } else if (s.status === "error") {
+          clearInterval(poll);
+          status.className = "error";
+          status.textContent = "WFA failed: " + s.error;
+        }
+      } catch(e) { clearInterval(poll); status.className="error"; status.textContent=e.message; }
+    }, 8000);
+  } catch(e) {
+    status.className = "error";
+    status.textContent = "Launch failed: " + e.message;
+  }
 }
 
 function attachResultHandlers() {
@@ -670,7 +804,7 @@ function attachResultHandlers() {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".result-tabs button").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
-      ["overview","technical","insider","report"].forEach(t => {
+      ["overview","technical","insider","report","backtest"].forEach(t => {
         const el = $("rtab-"+t);
         if (el) el.classList.toggle("hidden", t!==btn.dataset.rtab);
       });

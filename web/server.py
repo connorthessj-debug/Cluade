@@ -18,6 +18,8 @@ import os
 import secrets
 import sys
 import time
+import uuid
+from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -48,6 +50,7 @@ MACRO_TTL = 3600   # 1 hour — FRED series update daily
 NEWS_TTL  = 300    # 5 min — headlines turn over
 
 _cache: dict[str, dict] = {}
+_backtest_jobs: dict[str, dict] = {}   # job_id → {status, result, error}
 
 def _cache_get(key: str) -> dict | None:
     entry = _cache.get(key)
@@ -330,4 +333,75 @@ async def api_history_detail(filename: str, _user: str = Depends(auth_required))
         "conviction": parsed.get("conviction", "?"),
         "asset_class": parsed.get("asset_class", "?"),
         "audit": parsed.get("audit", {}),
+    }
+
+
+# ── backtest ──────────────────────────────────────────────────────────────────
+
+def _wfa_worker(symbol: str, n_trials: int, train_days: int, test_days: int,
+                step_days: int, allow_short: bool) -> dict:
+    """Runs in a separate process so it doesn't block the event loop."""
+    sys.path.insert(0, str(REPO_ROOT))
+    from scripts.wfa_optimizer import run_wfa
+    return run_wfa(symbol, n_trials=n_trials, train_days=train_days,
+                   test_days=test_days, step_days=step_days, allow_short=allow_short)
+
+
+async def _run_backtest_job(job_id: str, symbol: str, n_trials: int,
+                            train_days: int, test_days: int, step_days: int,
+                            allow_short: bool) -> None:
+    _backtest_jobs[job_id]["status"] = "running"
+    try:
+        loop = asyncio.get_event_loop()
+        with ProcessPoolExecutor(max_workers=1) as pool:
+            result = await loop.run_in_executor(
+                pool, _wfa_worker, symbol, n_trials, train_days, test_days, step_days, allow_short
+            )
+        _backtest_jobs[job_id]["status"] = "done"
+        _backtest_jobs[job_id]["result"] = result
+    except Exception as e:
+        _backtest_jobs[job_id]["status"] = "error"
+        _backtest_jobs[job_id]["error"] = str(e)
+
+
+@app.post("/api/backtest")
+async def api_backtest_start(payload: dict, _user: str = Depends(auth_required)) -> dict:
+    """Start a WFA backtest job. Returns job_id to poll."""
+    symbol = (payload.get("symbol") or "").strip().upper()
+    if not symbol:
+        raise HTTPException(status_code=400, detail="symbol required")
+    if asset_class_mod.detect(symbol) not in ("equity", "index", "crypto"):
+        raise HTTPException(status_code=400, detail="backtest supports equity/index/crypto only")
+
+    n_trials  = min(int(payload.get("n_trials",  40)), 100)
+    train_days = min(int(payload.get("train_days", 252)), 504)
+    test_days  = min(int(payload.get("test_days",  63)),  126)
+    step_days  = min(int(payload.get("step_days",  21)),  63)
+    allow_short = bool(payload.get("allow_short", True))
+
+    job_id = str(uuid.uuid4())[:8]
+    _backtest_jobs[job_id] = {"status": "queued", "symbol": symbol,
+                               "result": None, "error": None,
+                               "started_at": datetime.now(timezone.utc).isoformat()}
+
+    asyncio.create_task(_run_backtest_job(
+        job_id, symbol, n_trials, train_days, test_days, step_days, allow_short
+    ))
+
+    return {"job_id": job_id, "symbol": symbol, "status": "queued",
+            "message": f"WFA started: {n_trials} trials × ~{(len(range(0, 1260-train_days-test_days, step_days)))} windows"}
+
+
+@app.get("/api/backtest/{job_id}")
+async def api_backtest_status(job_id: str, _user: str = Depends(auth_required)) -> dict:
+    job = _backtest_jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="job not found")
+    return {
+        "job_id": job_id,
+        "status": job["status"],
+        "symbol": job.get("symbol"),
+        "started_at": job.get("started_at"),
+        "result": job.get("result"),
+        "error": job.get("error"),
     }
