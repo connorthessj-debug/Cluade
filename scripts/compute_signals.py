@@ -22,7 +22,7 @@ def run_script(script_name, *args):
             [sys.executable, script_path, *args],
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=45,
         )
         stdout = result.stdout.strip()
         if not stdout:
@@ -37,9 +37,13 @@ def run_script(script_name, *args):
 
 
 def run_parallel(*calls):
-    """Run multiple (script_name, *args) calls concurrently. Returns dict keyed by script_name."""
+    """Run multiple (script_name, *args) calls concurrently.
+    Capped at 3 workers to stay within Render free-tier RAM (512 MB).
+    Returns dict keyed by script_name.
+    """
     results = {}
-    with ThreadPoolExecutor(max_workers=len(calls)) as pool:
+    max_workers = min(len(calls), 3)
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
         futures = {pool.submit(run_script, name, *args): name for name, *args in calls}
         for future in as_completed(futures):
             results[futures[future]] = future.result()
