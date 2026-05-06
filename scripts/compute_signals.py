@@ -37,13 +37,9 @@ def run_script(script_name, *args):
 
 
 def run_parallel(*calls):
-    """Run multiple (script_name, *args) calls concurrently.
-    Capped at 3 workers to stay within Render free-tier RAM (512 MB).
-    Returns dict keyed by script_name.
-    """
+    """Run multiple (script_name, *args) calls concurrently. Returns dict keyed by script_name."""
     results = {}
-    max_workers = min(len(calls), 3)
-    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+    with ThreadPoolExecutor(max_workers=len(calls)) as pool:
         futures = {pool.submit(run_script, name, *args): name for name, *args in calls}
         for future in as_completed(futures):
             results[futures[future]] = future.result()
