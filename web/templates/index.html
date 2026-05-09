@@ -673,45 +673,129 @@ function renderBacktestLauncher(symbol) {
                padding:4px 8px;border-radius:3px;font-family:inherit;`;
   const sel = inp + `width:160px;`;
   return `
-    <div class="section-label">Walk-Forward Analysis — Institutional Grade</div>
-    <p style="font-size:12px;color:var(--muted);line-height:1.5">
-      Optuna TPE Bayesian optimisation on rolling train windows, validated OOS.
-      Includes intrabar stop/TP simulation, slippage, permutation significance test
-      and full institutional metric suite. 2–8 min depending on settings.
-    </p>
-    <div class="kv" style="margin-bottom:12px">
-      <div class="k">Resolution</div>
-      <div class="v"><select id="bt-interval" style="${sel}">
-        <option value="1d" selected>1d — Daily (5y history)</option>
-        <option value="1h">1h — Hourly (730d equity / crypto)</option>
-        <option value="15m">15m — Crypto only</option>
-        <option value="5m">5m — Crypto only</option>
-      </select></div>
-      <div class="k">Strategy</div>
-      <div class="v"><select id="bt-strategy" style="${sel}">
-        <option value="sma_rsi" selected>SMA + RSI Crossover</option>
-        <option value="breakout">N-Bar Breakout + ATR</option>
-        <option value="mean_reversion">Mean Reversion (BB + RSI)</option>
-      </select></div>
-      <div class="k">Trials/window</div>
-      <div class="v"><input type="number" id="bt-trials" value="40" min="10" max="100"
-        style="${inp}width:80px"></div>
-      <div class="k">Train bars</div>
-      <div class="v"><input type="number" id="bt-train" value="252" min="126" max="504"
-        style="${inp}width:80px"></div>
-      <div class="k">Test bars</div>
-      <div class="v"><input type="number" id="bt-test" value="63" min="21" max="126"
-        style="${inp}width:80px"></div>
-      <div class="k">Allow short</div>
-      <div class="v"><input type="checkbox" id="bt-short" checked
-        style="width:18px;height:18px;accent-color:var(--amber)"></div>
+    <div class="section-label">Backtesting Engine</div>
+
+    <!-- Engine selector tabs -->
+    <div style="display:flex;gap:0;margin-bottom:14px;border:1px solid var(--border);border-radius:4px;overflow:hidden">
+      <button id="eng-builtin" onclick="selectEngine('builtin')"
+        style="flex:1;padding:7px 4px;font-size:11px;font-family:inherit;cursor:pointer;
+               border:0;background:var(--amber);color:#000;font-weight:700">
+        Built-in WFA
+      </button>
+      <button id="eng-lean" onclick="selectEngine('lean')"
+        style="flex:1;padding:7px 4px;font-size:11px;font-family:inherit;cursor:pointer;
+               border:0;border-left:1px solid var(--border);background:var(--bg-3);color:var(--fg)">
+        Lean (local)
+      </button>
+      <button id="eng-qc" onclick="selectEngine('qc')"
+        style="flex:1;padding:7px 4px;font-size:11px;font-family:inherit;cursor:pointer;
+               border:0;border-left:1px solid var(--border);background:var(--bg-3);color:var(--fg)">
+        QC Cloud ✦
+      </button>
     </div>
-    <button class="primary" style="width:100%" onclick="launchBacktest('${symbol}')">
-      RUN WFA BACKTEST
-    </button>
+
+    <!-- Built-in WFA panel -->
+    <div id="eng-panel-builtin">
+      <p style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:10px">
+        Optuna TPE Bayesian WFA on rolling windows. Intrabar stop/TP simulation,
+        slippage, permutation significance test. 2–8 min.
+      </p>
+      <div class="kv" style="margin-bottom:12px">
+        <div class="k">Resolution</div>
+        <div class="v"><select id="bt-interval" style="${sel}">
+          <option value="1d" selected>1d — Daily (5y)</option>
+          <option value="1h">1h — Hourly (730d)</option>
+          <option value="15m">15m — Crypto only</option>
+          <option value="5m">5m — Crypto only</option>
+        </select></div>
+        <div class="k">Strategy</div>
+        <div class="v"><select id="bt-strategy" style="${sel}">
+          <option value="sma_rsi" selected>SMA + RSI Crossover</option>
+          <option value="breakout">N-Bar Breakout + ATR</option>
+          <option value="mean_reversion">Mean Reversion (BB+RSI)</option>
+        </select></div>
+        <div class="k">Trials/window</div>
+        <div class="v"><input type="number" id="bt-trials" value="40" min="10" max="100" style="${inp}width:80px"></div>
+        <div class="k">Train bars</div>
+        <div class="v"><input type="number" id="bt-train" value="252" min="126" max="504" style="${inp}width:80px"></div>
+        <div class="k">Test bars</div>
+        <div class="v"><input type="number" id="bt-test" value="63" min="21" max="126" style="${inp}width:80px"></div>
+        <div class="k">Allow short</div>
+        <div class="v"><input type="checkbox" id="bt-short" checked style="width:18px;height:18px;accent-color:var(--amber)"></div>
+      </div>
+      <button class="primary" style="width:100%" onclick="launchBacktest('${symbol}')">RUN WFA BACKTEST</button>
+    </div>
+
+    <!-- Gate 1: Lean local panel -->
+    <div id="eng-panel-lean" class="hidden">
+      <p style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:10px">
+        Run <strong>lean backtest</strong> locally via Docker, then push results here.
+        Requires Docker Desktop + <code style="font-size:11px">lean login</code>.
+      </p>
+      <div style="background:var(--bg-3);border-radius:4px;padding:10px;font-size:12px;margin-bottom:10px">
+        <div style="color:var(--amber);font-weight:700;margin-bottom:6px">Local setup (one-time)</div>
+        <code style="display:block;font-size:11px;color:var(--fg);line-height:1.8">
+          pip install lean<br>
+          lean login<br>
+        </code>
+        <div style="color:var(--amber);font-weight:700;margin:8px 0 6px">Run a backtest</div>
+        <code style="display:block;font-size:11px;color:var(--fg);line-height:1.8">
+          lean-backtest.bat ${symbol}<br>
+          lean-backtest.bat ${symbol} --strategy breakout --resolution Hour<br>
+          lean-backtest.bat ${symbol} --push https://your-app.onrender.com
+        </code>
+      </div>
+      <button class="primary" style="width:100%" onclick="loadLeanResult('${symbol}')">
+        LOAD LEAN RESULTS FOR ${symbol}
+      </button>
+    </div>
+
+    <!-- Gate 2: QC Cloud panel -->
+    <div id="eng-panel-qc" class="hidden">
+      <p style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:10px">
+        Submit to <strong>QuantConnect Cloud</strong> — true tick data, institutional fill
+        simulation, runs on QC servers. Requires QC_USER_ID + QC_API_KEY in Render env vars.
+      </p>
+      <div class="kv" style="margin-bottom:12px">
+        <div class="k">Strategy</div>
+        <div class="v"><select id="qc-strategy" style="${sel}">
+          <option value="sma_rsi" selected>SMA + RSI Crossover</option>
+          <option value="breakout">N-Bar Breakout + ATR</option>
+          <option value="mean_reversion">Mean Reversion (BB+RSI)</option>
+        </select></div>
+        <div class="k">Resolution</div>
+        <div class="v"><select id="qc-resolution" style="${sel}">
+          <option value="Daily" selected>Daily</option>
+          <option value="Hour">Hour</option>
+          <option value="Minute">Minute</option>
+          <option value="Second">Second</option>
+          <option value="Tick">Tick ✦</option>
+        </select></div>
+        <div class="k">Capital ($)</div>
+        <div class="v"><input type="number" id="qc-capital" value="10000" min="1000" style="${inp}width:100px"></div>
+        <div class="k">Allow short</div>
+        <div class="v"><input type="checkbox" id="qc-short" checked style="width:18px;height:18px;accent-color:var(--amber)"></div>
+      </div>
+      <button class="primary" style="width:100%" onclick="launchQCBacktest('${symbol}')">
+        SUBMIT TO QC CLOUD
+      </button>
+    </div>
+
     <div id="bt-status" class="hidden" style="margin-top:12px"></div>
     <div id="bt-result" style="margin-top:12px"></div>
   `;
+}
+
+function selectEngine(engine) {
+  ["builtin","lean","qc"].forEach(e => {
+    const btn   = document.getElementById("eng-"+e);
+    const panel = document.getElementById("eng-panel-"+e);
+    const active = e === engine;
+    if (btn)   { btn.style.background = active ? "var(--amber)" : "var(--bg-3)";
+                 btn.style.color      = active ? "#000" : "var(--fg)";
+                 btn.style.fontWeight = active ? "700" : "400"; }
+    if (panel) panel.classList.toggle("hidden", !active);
+  });
 }
 
 function renderBacktestResult(r) {
@@ -857,6 +941,141 @@ async function launchBacktest(symbol) {
     status.className = "error";
     status.textContent = "Launch failed: " + e.message;
   }
+}
+
+// ── Gate 1: load Lean local results pushed by lean_runner.py ─────────────────
+async function loadLeanResult(symbol) {
+  const status = $("bt-status");
+  status.classList.remove("hidden");
+  status.className = "loading";
+  status.textContent = "Fetching Lean results…";
+  try {
+    const r = await api(`/api/lean-result/${symbol}`);
+    status.classList.add("hidden");
+    $("bt-result").innerHTML = renderInstitutionalResult(r);
+  } catch(e) {
+    status.className = "error";
+    status.textContent = e.message.includes("404")
+      ? `No Lean results for ${symbol}. Run: lean-backtest.bat ${symbol} --push <your-url>`
+      : "Error: " + e.message;
+  }
+}
+
+// ── Gate 2: submit to QC Cloud ────────────────────────────────────────────────
+async function launchQCBacktest(symbol) {
+  const strategy   = document.getElementById("qc-strategy")?.value   || "sma_rsi";
+  const resolution = document.getElementById("qc-resolution")?.value || "Daily";
+  const capital    = parseInt(document.getElementById("qc-capital")?.value  || 10000);
+  const short      = document.getElementById("qc-short")?.checked !== false;
+
+  const status = $("bt-status");
+  status.classList.remove("hidden");
+  status.className = "loading";
+  status.textContent = "Submitting to QC Cloud…";
+
+  try {
+    const job = await api("/api/qc-backtest", {
+      method:  "POST",
+      headers: {"Content-Type":"application/json"},
+      body:    JSON.stringify({symbol, strategy, resolution,
+                               allow_short: short, capital}),
+    });
+
+    status.textContent = `QC Cloud running… (${job.job_id}) — may take 5–15 min`;
+
+    const poll = setInterval(async () => {
+      try {
+        const s = await api(`/api/qc-backtest/${job.job_id}`);
+        if (s.status === "done") {
+          clearInterval(poll);
+          status.classList.add("hidden");
+          $("bt-result").innerHTML = renderInstitutionalResult(s.result);
+        } else if (s.status === "error") {
+          clearInterval(poll);
+          status.className = "error";
+          status.textContent = "QC Cloud failed: " + s.error;
+        }
+      } catch(e) { clearInterval(poll); status.className="error"; status.textContent=e.message; }
+    }, 10000);
+  } catch(e) {
+    status.className = "error";
+    status.textContent = e.message.includes("503")
+      ? "QC_USER_ID / QC_API_KEY not set in Render environment variables"
+      : "Launch failed: " + e.message;
+  }
+}
+
+// ── Shared result renderer (Gate 1 Lean + Gate 2 QC Cloud) ───────────────────
+function renderInstitutionalResult(r) {
+  if (!r) return `<div class="error">No result data</div>`;
+
+  const source    = r.source || "unknown";
+  const sourceLbl = source === "lean_local" ? "Lean (local)"
+                  : source === "qc_cloud"   ? "QC Cloud ✦"
+                  : source;
+  const isQC      = source === "qc_cloud";
+
+  const sColor = r.sharpe_ratio > 0.8 ? "var(--green)"
+               : r.sharpe_ratio > 0.3 ? "var(--amber)"
+               : "var(--red)";
+
+  let html = `
+    <div style="display:flex;justify-content:space-between;align-items:center;
+                padding:8px 10px;background:var(--bg-3);border-radius:4px;margin-bottom:10px">
+      <span style="font-size:11px;color:var(--muted)">${sourceLbl} · ${r.symbol} · ${r.strategy?.replace(/_/g," ")} · ${r.resolution}</span>
+      <span style="font-size:11px;color:var(--muted)">${r.run_at?.slice(0,16).replace("T"," ")} UTC</span>
+    </div>`;
+
+  html += `<div class="section-label">Performance Summary</div><div class="kv">`;
+  html += kv("Total Return",   fmt(r.total_return_pct)+"%", r.total_return_pct>0?"bull":"bear");
+  html += kv("CAGR",           fmt(r.cagr_pct)+"%",         r.cagr_pct>0?"bull":"bear");
+  html += kv("Sharpe Ratio",   fmt(r.sharpe_ratio,3),        r.sharpe_ratio>0.5?"bull":r.sharpe_ratio>0?"":"bear");
+  html += kv("Sortino Ratio",  fmt(r.sortino_ratio,3));
+  html += kv("Max Drawdown",   fmt(r.max_drawdown_pct)+"%",  "bear");
+  html += kv("Win Rate",       fmt(r.win_rate_pct,1)+"%",    r.win_rate_pct>50?"bull":"bear");
+  html += kv("Profit Factor",  fmt(r.profit_factor,3),       r.profit_factor>1?"bull":"bear");
+  html += kv("Total Trades",   r.n_trades);
+  html += `</div>`;
+
+  if (r.alpha != null) {
+    html += `<div class="section-label">Institutional Metrics</div><div class="kv">`;
+    html += kv("Alpha",                fmt(r.alpha,4),                r.alpha>0?"bull":"bear");
+    html += kv("Beta",                 fmt(r.beta,4));
+    html += kv("Information Ratio",    fmt(r.information_ratio,3));
+    if (r.probabilistic_sharpe != null)
+      html += kv("Probabilistic Sharpe", fmt(r.probabilistic_sharpe,3));
+    if (r.total_fees != null)
+      html += kv("Total Fees ($)",       fmt(r.total_fees,2));
+    if (r.capacity)
+      html += kv("Est. Capacity",        r.capacity);
+    html += `</div>`;
+  }
+
+  if (isQC && r.rolling_stats?.length) {
+    html += `<div class="section-label">Rolling Stats (last ${Math.min(r.rolling_stats.length,6)} periods)</div>`;
+    html += `<div class="kv" style="font-size:11px">`;
+    r.rolling_stats.slice(-6).forEach(s => {
+      html += `<div class="k" style="color:var(--muted)">${(s.Date||"").slice(0,7)}</div>
+               <div class="v">Sharpe ${fmt(s.SharpeRatio,3)} · β ${fmt(s.Beta,3)}</div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (r.equity_curve?.length) {
+    const pts = r.equity_curve;
+    const min = Math.min(...pts.map(p=>p.v));
+    const max = Math.max(...pts.map(p=>p.v));
+    const w = 320, h = 60;
+    const xs = pts.map((_,i) => Math.round(i/(pts.length-1)*w));
+    const ys = pts.map(p => Math.round((1-(p.v-min)/(max-min||1))*h));
+    const path = pts.map((p,i)=>`${i===0?"M":"L"}${xs[i]},${ys[i]}`).join(" ");
+    html += `<div class="section-label">Equity Curve</div>
+      <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:60px;background:var(--bg-3);border-radius:4px">
+        <path d="${path}" fill="none" stroke="var(--amber)" stroke-width="1.5"/>
+      </svg>`;
+  }
+
+  return html;
 }
 
 function attachResultHandlers() {

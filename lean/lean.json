@@ -1,0 +1,31 @@
+{
+    "algorithm-language": "Python",
+    "parameters": {
+        "symbol":      "AAPL",
+        "resolution":  "Daily",
+        "start_year":  "2020",
+        "start_month": "1",
+        "start_day":   "1",
+        "end_year":    "2024",
+        "end_month":   "12",
+        "end_day":     "31",
+        "capital":     "10000",
+        "fast_ma":     "20",
+        "slow_ma":     "50",
+        "rsi_period":  "14",
+        "rsi_buy":     "35.0",
+        "rsi_sell":    "65.0",
+        "allow_short": "true",
+        "lookback_n":  "20",
+        "atr_period":  "14",
+        "atr_mult":    "1.0",
+        "bb_period":   "20",
+        "bb_std":      "2.0",
+        "rsi_oversold":   "30.0",
+        "rsi_overbought": "70.0",
+        "stop_loss_pct":  "0.05",
+        "tp_pct":         "0.10"
+    },
+    "description": "trading-ops Lean algorithms — institutional-grade backtesting",
+    "cloud-id": null
+}

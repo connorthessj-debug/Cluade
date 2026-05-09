@@ -6,3 +6,9 @@ __pycache__/
 venv/
 watchlist.json
 .DS_Store
+
+# Lean local backtesting — data and backtest output (large, not versioned)
+lean/data/
+lean/backtests/
+lean/.lean/
+.lean/

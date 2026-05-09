@@ -429,6 +429,121 @@ async def api_backtest_status(job_id: str, _user: str = Depends(auth_required)) 
     }
 
 
+# ── Gate 1: Lean local result store ──────────────────────────────────────────
+# lean_runner.py POSTs results here after running `lean backtest` locally.
+# Results are cached 24h and displayed in the WFA tab.
+
+@app.post("/api/lean-result")
+async def lean_result_store(payload: dict, _user: str = Depends(auth_required)) -> dict:
+    symbol = (payload.get("symbol") or "").strip().upper()
+    if not symbol:
+        raise HTTPException(status_code=400, detail="symbol required")
+    _cache_set(f"lean:{symbol}", payload, 86400)
+    return {"status": "stored", "symbol": symbol}
+
+
+@app.get("/api/lean-result/{symbol}")
+async def lean_result_get(symbol: str, _user: str = Depends(auth_required)) -> dict:
+    data = _cache_get(f"lean:{symbol.upper()}")
+    if not data:
+        raise HTTPException(status_code=404, detail="No Lean results cached for this symbol")
+    return data
+
+
+# ── Gate 2: QC Cloud backtest ─────────────────────────────────────────────────
+# Submits algorithm code to QuantConnect Cloud, polls for results.
+# Requires QC_USER_ID + QC_API_KEY env vars.
+
+_qc_jobs: dict = {}   # job_id → {status, result, error, ...}
+
+
+def _qc_worker(symbol: str, strategy: str, resolution: str,
+               allow_short: bool, capital: int, params: dict) -> dict:
+    """Runs in a separate process."""
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from scripts.qc_client import QCClient
+    from scripts.qc_algorithms import build_algorithm_code
+
+    code   = build_algorithm_code(symbol, strategy, resolution, allow_short, capital,
+                                   params=params)
+    client = QCClient()
+    return client.run_backtest(symbol, strategy, resolution, code)
+
+
+async def _run_qc_job(job_id: str, symbol: str, strategy: str, resolution: str,
+                      allow_short: bool, capital: int, params: dict) -> None:
+    _qc_jobs[job_id]["status"] = "running"
+    try:
+        loop = asyncio.get_event_loop()
+        with ProcessPoolExecutor(max_workers=1) as pool:
+            result = await loop.run_in_executor(
+                pool, _qc_worker,
+                symbol, strategy, resolution, allow_short, capital, params,
+            )
+        _qc_jobs[job_id]["status"] = "done"
+        _qc_jobs[job_id]["result"] = result
+    except Exception as e:
+        _qc_jobs[job_id]["status"] = "error"
+        _qc_jobs[job_id]["error"]  = str(e)
+
+
+VALID_QC_RESOLUTIONS = {"Daily", "Hour", "Minute", "Second", "Tick"}
+VALID_QC_STRATEGIES  = {"sma_rsi", "breakout", "mean_reversion"}
+
+
+@app.post("/api/qc-backtest")
+async def qc_backtest_start(payload: dict, _user: str = Depends(auth_required)) -> dict:
+    if not os.environ.get("QC_USER_ID") or not os.environ.get("QC_API_KEY"):
+        raise HTTPException(status_code=503,
+                            detail="QC_USER_ID and QC_API_KEY not configured on server")
+
+    symbol = (payload.get("symbol") or "").strip().upper()
+    if not symbol:
+        raise HTTPException(status_code=400, detail="symbol required")
+
+    strategy   = str(payload.get("strategy",   "sma_rsi"))
+    resolution = str(payload.get("resolution", "Daily"))
+    if strategy not in VALID_QC_STRATEGIES:
+        strategy = "sma_rsi"
+    if resolution not in VALID_QC_RESOLUTIONS:
+        resolution = "Daily"
+
+    allow_short = bool(payload.get("allow_short", True))
+    capital     = min(int(payload.get("capital", 10_000)), 1_000_000)
+    params      = payload.get("params", {}) or {}
+
+    job_id = str(uuid.uuid4())[:8]
+    _qc_jobs[job_id] = {
+        "status": "queued", "symbol": symbol,
+        "strategy": strategy, "resolution": resolution,
+        "result": None, "error": None,
+        "started_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    asyncio.create_task(_run_qc_job(
+        job_id, symbol, strategy, resolution, allow_short, capital, params
+    ))
+    return {"job_id": job_id, "symbol": symbol, "status": "queued",
+            "message": f"QC Cloud backtest queued: {symbol} {strategy} {resolution}"}
+
+
+@app.get("/api/qc-backtest/{job_id}")
+async def qc_backtest_status(job_id: str, _user: str = Depends(auth_required)) -> dict:
+    job = _qc_jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="job not found")
+    return {
+        "job_id":     job_id,
+        "status":     job["status"],
+        "symbol":     job.get("symbol"),
+        "started_at": job.get("started_at"),
+        "result":     job.get("result"),
+        "error":      job.get("error"),
+    }
+
+
 # ── siri / iOS Shortcuts endpoints ───────────────────────────────────────────
 # These return plain text so Siri can speak the result and Shortcuts
 # can display it in a notification or alert without any JSON parsing.
